@@ -1,0 +1,110 @@
+#!/usr/bin/lua
+
+local px=require"posix"
+
+local data={}
+local cache={}
+local ok={}
+local drop={}
+
+function exec_cmd(cmd)
+    local pp=io.popen(cmd)
+    if pp then
+        print(pp:read("*a"))
+    end
+end
+
+function _start()
+    print("watching...")
+    exec_cmd('echo 1 > /proc/sys/debug/drop-monitor')
+end
+
+function _end()
+    exec_cmd('echo 0 > /proc/sys/debug/drop-monitor')
+    print("finishing...")
+    os.exit()
+end
+
+px.signal(px.SIGTERM,
+    function()
+        print("catch SIGTERM")
+        print_data()
+        _end()
+    end
+)
+
+px.signal(px.SIGINT,
+    function()
+        print("catch SIGINT")
+        print_data()
+        _end()
+    end
+)
+
+function read_sym(infile)
+    local sf=io.open(infile,'r')
+
+    count=1
+    for str in sf:lines() do
+        local _,_,loc,sfun=string.find(str,"^(%w+)%s+%w+%s+(.*)$")
+        data[count]={}
+        data[count]['hex']=loc
+        data[count]['dec']=tonumber(loc,16)
+        data[count]['fun']=sfun
+        count = count +1
+    end
+
+    sf:close()
+end
+
+
+function find_sym(num)
+    --print("try to find " .. num)
+    local l,r,m=1,count-1
+    while 1 do
+        m=math.floor((l+r)/2)
+        --print(m,data[m]['dec'],data[m]['hex'])
+        if num<data[m]['dec'] then
+            r=m;
+        else
+            l=m;
+            if l==r or l==r-1 then
+                return m
+            end
+        end
+    end
+    return 0
+end
+
+function print_data()
+    for k,v in pairs(drop) do
+        local num=tonumber(k,16)
+        local snum=find_sym(num)
+        if snum then
+            print(k,v,data[snum]['fun'],"+",num-data[snum]['dec'])
+        end
+    end
+end
+
+function read_log(infile)
+    local fd=io.open(infile,'r')
+    assert(fd)
+    for str in fd:lines() do
+        local _,_,loc=string.find(str,"drop%s*@%s*(%w+)")
+        --print(loc)
+        if loc then
+            if not drop[loc] then
+                drop[loc] = 1
+            else
+                drop[loc] = drop[loc] + 1
+            end
+        end
+    end
+    fd:close()
+end
+
+_start()
+read_sym('/proc/kallsyms')
+read_log('/proc/kmsg')
+
+_end()

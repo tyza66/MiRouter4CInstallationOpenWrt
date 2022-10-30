@@ -1,0 +1,204 @@
+#! /bin/sh
+# troubleshoot script for network.
+
+# skip wan monitor in FT mode
+check_factory_mode() {
+    local ft_mode=`cat /proc/xiaoqiang/ft_mode`
+    [ "$ft_mode" = "1" ] && exit 0
+}
+check_factory_mode
+
+. /usr/share/libubox/jshn.sh
+. /lib/functions/network.sh
+. /lib/xq-misc/phy_switch.sh
+
+network_flush_cache
+
+json_out() {
+    json_init
+    json_add_string code "$1"
+    json_add_string reason "$2"
+    echo "$(json_dump)"
+}
+
+# find out why wan is down?
+diagnose_wan_down() {
+    local proto=$1
+    case "$proto" in
+	pppoe)
+	    local pppoe_ret=$(lua /usr/sbin/pppoe.lua status)
+	    local ret
+	    local code
+	    json_load "${pppoe_ret}"
+	    json_get_var ret "msg"
+	    json_get_var code "code"
+	    json_get_var proc "process"
+	    case "$ret" in
+		678)
+		    [ $code = "531" ] && json_out 3 "pppoe no response"
+		    [ $code = "532" ] && json_out 34 "pppoe need reset mac"
+		;;
+		633)
+		    json_out 31 "pppoe no more sesson"
+		;;
+		691)
+		    [ $code = "507" ] && json_out 32 "pppoe password error"
+		    [ $code = "508" ] && json_out 33 "pppoe account not valid"
+		;;
+	    esac
+	    [ $proc = "down" ] && json_out 35 "pppoe stop by user"
+	    return
+	    #TODO check if the result is not there
+	;;
+	dhcp)
+	    json_out 2 "dhcp no server"
+	    return
+	;;
+    esac
+    # TODO for vnp ?
+    json_out 10 "link broken"
+}
+
+is_subnet_conflict() {
+    local net1=$(/bin/ipcalc.sh "$1" | grep NETWORK)
+    local net2=$(/bin/ipcalc.sh "$2" | grep NETWORK)
+    [ "$net1" = "$net2" ]
+}
+
+is_gateway_reachable() {
+    local dev="$1"
+    local gw="$2"
+    ping -c 2 -W 2 -q "$gw" > /dev/null ||
+	arping -f -q -c 3 -w 2 -I "$dev" "$gw" ||
+	    return 1
+    return 0
+}
+
+dns_check() {
+    local dns_list="$1"
+    local host_list="$2"
+    if [ -z "$host_list" ]; then
+	cc=$(/usr/sbin/bdata get CountryCode)
+	cc=${cc:-CN}
+	if [ "$cc" == "CN" ]; then
+	    host_list=$(uci -q get system.netdt.cn_domain)
+	else
+	    host_list=$(uci -q get system.netdt.world_domain)
+	fi
+    fi
+    for ns in $dns_list; do
+	for th in $host_list; do
+	    # fix nslookup reverse resolving
+	    /usr/sbin/nslookupc "$th" "$ns" 3 && return 0
+	done
+    done
+}
+
+is_fallback_dns_fine() {
+    # TODO use localized default dns
+    local ns="$1"
+    local default_ns='114.114.114.114 114.114.115.115'
+    dns_check "$default_ns"
+    [ $? -eq 0 ] && echo "$default_ns"
+}
+
+
+normal_diagnose() {
+    local hostname="$1"
+    # check wan port net link
+    if ! sw_wan_link_detect; then
+	json_out 1 'wan port unplug'
+	return 1
+    fi
+
+    local proto=$(uci -q get network.wan.proto)
+    # is wan up?
+    network_is_up wan || {
+	diagnose_wan_down "$proto"
+	return 1
+    }
+    # check subnet conflict - dhcp
+    local wan_sub
+    local lan_sub
+    network_get_subnet wan_sub wan
+    network_get_subnet lan_sub lan
+    [ "$proto" = "dhcp" ] && is_subnet_conflict "$wan_sub" "$lan_sub" && {
+	    json_out 4 'dhcp upstream conflict'
+	    return 1
+	}
+    # do not check gateway for pppoe since it may not work
+    local gw
+    local dev
+    network_get_gateway gw wan
+    network_get_physdev dev wan
+    [ "$proto" = "pppoe" ] || is_gateway_reachable "$dev" "$gw" || {
+	    json_out 5 'gateway unreachable'
+	    return 1
+	}
+    local upstream='/tmp/resolv.conf.upstream'
+    local autodns='/tmp/resolv.conf.auto'
+    local ns
+    if [ -f "$upstream" ]; then
+	ns=$(grep nameserver "$upstream" | cut -d' ' -f2)
+    else
+	ns=$(grep nameserver "$autodns" | cut -d' ' -f2)
+    fi
+    dns_check "$ns" "$hostname" || {
+	if [ "$proto" = "static" ] || [ -f "$upstream" ]; then
+		json_out 7 'dns custom set'
+		return 1
+	    else
+		#is_default_dns_fine &&
+		json_out 6 'dns resolve failed'
+		return 1
+	    fi
+    }
+}
+
+wifi_ap_diagnose() {
+    local hostname="$1"
+    local gw
+    local dev
+    network_get_gateway gw lan
+    network_get_physdev dev lan
+    is_gateway_reachable "$dev" "$gw" || {
+	    json_out 8 'wifi_ap: gateway unreachable'
+	    return 1
+    }
+    network_get_dnsserver ns lan
+    dns_check "$ns" "$hostname" || {
+	json_out 6 'dns resolve failed'
+	return 1
+    }
+}
+
+wire_ap_diagnose() {
+    local hostname="$1"
+    local gw
+    local dev
+    network_get_gateway gw lan
+    network_get_physdev dev lan
+    is_gateway_reachable "$dev" "$gw" || {
+	    json_out 9 'wire_ap: gateway unreachable'
+	    return 1
+    }
+    local ns
+    network_get_dnsserver ns lan
+    dns_check "$ns" "$hostname" || {
+	json_out 6 'dns resolve failed'
+	return 1
+    }
+}
+
+net_mode=$(uci -q get xiaoqiang.common.NETMODE)
+case "$net_mode" in
+    lanapmode)
+	wire_ap_diagnose "$1"
+    ;;
+    wifiapmode)
+	wifi_ap_diagnose "$1"
+    ;;
+    *)
+	normal_diagnose "$1"
+    ;;
+esac

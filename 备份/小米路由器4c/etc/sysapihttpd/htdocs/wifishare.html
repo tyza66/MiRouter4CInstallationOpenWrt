@@ -1,0 +1,337 @@
+
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta charset="utf-8">
+    <title>访客Wi-Fi</title>
+	<link rel="stylesheet" type="text/css" href="//s.miwifi.com/sns_wifi_share_v0510/css/iconfont.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/sns_wifi_share_v0510/css/style.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/dist/ads_flow_v3/css/index.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/dist/ads_flow_v3/css/style.css"/>
+    <script type="text/javascript">
+        // SNS协议参数配置
+        var CONF = {
+            appid: 'wxc3de7525dd792beb',
+            devicetype: 'gh_deffce86b61f',
+            deviceid: '',
+            token: '',
+            headurl: '',
+            clientinfo: '',
+            ssid: '',
+            disable_ad: true
+        };
+
+        var SNSenable = [];
+        //var SNSenable = ['wechat', 'direct_request', 'wifirent_wechat_pay'];
+    </script>
+    <script>
+        function ajax(params) {
+            params = params || {};
+            params.data = params.data || {};
+            var json = params.jsonp ? jsonp(params) : json(params);
+            // jsonp请求
+            function jsonp(params) {
+                //创建script标签并加入到页面中
+                var callbackName = params.jsonp;
+                var head = document.getElementsByTagName('head')[0];
+                // 设置传递给后台的回调参数名
+                params.data['callback'] = callbackName;
+                var data = formatParams(params.data);
+                var script = document.createElement('script');
+                head.appendChild(script);
+                //创建jsonp回调函数
+                window[callbackName] = function (json) {
+                    head.removeChild(script);
+                    clearTimeout(script.timer);
+                    window[callbackName] = null;
+                    params.success && params.success(json);
+                };
+                //发送请求
+                script.src = params.url + '?' + data;
+                //为了得知此次请求是否成功，设置超时处理
+                if (params.time) {
+                    script.timer = setTimeout(function () {
+                        window[callbackName] = null;
+                        head.removeChild(script);
+                        params.error && params.error({
+                            message: '超时'
+                        });
+                    }, time);
+                }
+            };
+            //格式化参数
+            function formatParams(data) {
+                var arr = [];
+                for (var name in data) {
+                    arr.push(encodeURIComponent(name) + '=' + encodeURIComponent(data[name]));
+                }
+                ;
+                // 添加一个随机数，防止缓存
+                arr.push('v=' + random());
+                return arr.join('&');
+            }
+
+            // 获取随机数
+            function random() {
+                return Math.floor(Math.random() * 10000 + 500);
+            }
+        }
+    </script>
+    <script src="http://s.miwifi.com/monitor/miwifi-monitor.js"></script>
+    <script>
+        //工具函数 cookie 手机类型
+        var tool = {
+            setCookie: function (key, value, days) {
+                var exp = new Date();
+                exp.setTime(exp.getTime() + days * 24 * 60 * 60 * 1000);
+                document.cookie = key + "=" + escape(value) + ";expires=" + exp.toGMTString();
+            },
+            getCookie: function (key) {
+                var arr, reg = new RegExp("(^| )" + key + "=([^;]*)(;|$)");
+                if (arr = document.cookie.match(reg))
+                    return unescape(arr[2]);
+                else
+                    return null;
+            },
+            removeCookie: function (name) {
+                var exp = new Date();
+                exp.setTime(exp.getTime() + (-1 * 24 * 60 * 60 * 1000));
+                var cval = Helper.getCookie(name);
+                document.cookie = name + "=" + cval + "; expires=" + exp.toGMTString();
+            },
+            isIos: function () {
+                var u = navigator.userAgent;
+                return !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/);
+            }
+        };
+        //判断手机类型 ios 走接口
+        var ready = tool.getCookie('ready');
+        if (tool.isIos()) {
+            if (ready == 1) {
+                console.log('ios且有cookie = 无需刷新页面');
+            } else {
+                MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_first"});
+                changeIos();
+            }
+        } else {
+            MIWIFI_MONITOR.log({element: "sns_wifi_v2_type=android"});
+        }
+
+
+        //ios需要 成功后刷新页面
+        function changeIos() {
+            ajax({
+                url: 'http://miwifi.com/cgi-bin/luci/api/misns/ios_ready',
+                //type: 'get',
+                //dataType: 'jsonp',
+                jsonp: 'jsonpCallback',
+                success: function (res) {
+                    console.log(res);
+                    if (res.code == 0) {
+                        tool.setCookie('ready', 1);
+                        MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_success_allow"});
+                        location.reload();
+                    } else {
+                        if (tool.getCookie('reload') == 1) {
+
+                        } else {
+                            tool.setCookie('reload', 1);
+                            MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_again"});
+                            location.reload();
+                        }
+                    }
+                },
+                error: function () {
+                    MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_no_allow"});
+                }
+            });
+        }
+    </script>
+</head>
+<body data-loading="false">
+<div class="loadings" style="display: block;">
+    <div class="spinner">
+        <div class="spinner-container container1">
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+            <div class="circle3"></div>
+            <div class="circle4"></div>
+        </div>
+        <div class="spinner-container container2">
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+            <div class="circle3"></div>
+            <div class="circle4"></div>
+        </div>
+        <div class="spinner-container container3">
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+            <div class="circle3"></div>
+            <div class="circle4"></div>
+        </div>
+    </div>
+</div>
+<!--新加弹框-->
+<div id="dialog" class="hide">
+    <h1>选择上网方式</h1>
+    <div class="middle">
+        <div class="div friend hide" id="friend">
+            <i class="iconfont icon-weixinhaoyou"></i>
+            <span>微信好友</span>
+        </div>
+        <div class="div application hide" id="btnNetApply">
+            <i class="iconfont icon-shenqingshangwang"></i>
+            <span>申请上网</span>
+        </div>
+    </div>
+    <div class="bottom">
+        <!--用户协议-->
+        <em class="_showagreement" style="color:#888">使用即同意 <a style="text-decoration: underline;">《用户协议》</a> </em>
+        <!--反馈-->
+        <a class="feedback" href="javascript:;">反馈</a>
+    </div>
+    <a class="close" href="javascript:;"></a>
+</div>
+<div class="bg snsconnect" id="snsconnect">
+    <!--<img id="mix2" src="//s.miwifi.com/sns_wifi_share_v2/img/hongbao.gif" style="display: inline;">
+    <div class="logo">
+        <img src="//s.miwifi.com/sns_wifi_share/img/mi_logo.png" width="30px"/>
+        <img class="feedback" src="http://s.miwifi.com/sns_wifi_share/img/ico_feedback.png" width="75px" height="30px"/>
+    </div>
+    <div class="hd">
+        <img src="//s.miwifi.com/sns_wifi_share/img/logo.png?2015101219'" width="64px" height="64px;">
+        <div class="right">
+            <h1 class="wifi_name"></h1>
+            <p class="wifi_info"></p>
+            <p class="ft3"><span class="safe"></span>百度安全为上网保驾护航</p>
+        </div>
+    </div>-->
+	
+	<!--新改版-->
+    <div class="new">
+        <div class="new_left">
+            <div class="icon_mi">
+                <i class="iconfont icon-mi"></i>
+            </div>
+            <h1 class="wifi_name"></h1>
+            <p class="wifi_info"></p>
+            <!--用户协议-->
+            <a class="_showagreement">《用户协议》</a>
+            <!--反馈-->
+            <a class="feedback" href="javascript:;">反馈</a>
+            <!--更多-->
+            <a class="_more hide" href="javascript:;">更多</a>
+        </div>
+        <div class="new_right clearfix">
+            <div class="button free_net" id="free_net">
+                <i class="iconfont icon-mianfeishangwang"></i>
+                <span>免费上网</span>
+            </div>
+            <div class="button money_net hide" id="money_net">
+                <i class="iconfont icon-hongbaoshangwang"></i>
+                <span>红包上网</span>
+            </div>
+        </div>
+    </div>
+	
+    <div id="doc">
+
+        <div id="btnList" class="btn-list"></div>
+
+        <div class="agreement" id="agreement" style="display:none;">
+            <div class="content">
+                <h2 class="title">小米路由器服务许可协议</h2>
+                <p>欢迎使用小米路由器提供的软件及服务！</p>
+                <p>
+                    为了更好的为您提供新一代智能路由器所带来的美好智能生活，我们会根据需要对您在使用小米路由器相关功能的使用情况进行统计，进而通过这些统计数据更好的完善小米路由器产品的功能使用，给您以及其他用户带来更好的体验。</p>
+                <p>
+                    请放心，我们像您一样厌恶个人隐私的泄露，所有统计数据仅包括您在使用小米路由器中对各项功能的使用频率、使用方式等，这些数据以匿名的方式统计，仅用于我们更好的改进产品为用户服务，绝不涉及用户在手机上保存的短信、通话记录、联系人等各种个人隐私数据。</p>
+                <p class="ft2">小米通讯技术有限公司<br>2015年10月</p>
+            </div>
+            <div class="bottom _hideagreement">隐藏内容</div>
+        </div>
+        <!--<p class="ft ft4">使用即同意<a class="_showagreement">《隐私声明和用户协议》</a></p>-->
+    </div>
+    <div id="error" style="display:none;">
+        <p>尝试连接超过3次，已被禁止连接<br>请等待30分钟后再试</p>
+    </div>
+    <div id="footer" class="footer">
+        <div id="all_add_ads"></div>
+        <div id="ads-container"></div>
+    </div>
+</div>
+<div id="guestconnect" class="bg connect" style="display:none"></div>
+<div class="mask"></div>
+<div class="wechat-guide">
+    <div class="content">
+        <div class="free-get">关注公众号，获取20分钟高速网络</div>
+    </div>
+    <div class="close"></div>
+</div>
+<div class="yo-tip hide" id="tip"></div>
+<script type="text/tmpl" id="tpl-feedback">
+    <div class="f-feedback">
+            <label class="f-title">当前场景(必选)</label>
+            <ul class="f-list">
+                <li class="f-item" data-type="slow">
+                    <img src="http://s.miwifi.com/sns_wifi_share/img/ico_feedback_4.png" width="50px"/>
+                    <div class="f-des">网速太慢</div>
+                </li>
+                <li class="f-item" data-type="cantpay">
+                    <img src="http://s.miwifi.com/sns_wifi_share/img/ico_feedback_3.png" width="50px"/>
+                    <div class="f-des">定单无法支付</div>
+                </li>
+                <li class="f-item" data-type="wireless">
+                    <img src="http://s.miwifi.com/sns_wifi_share/img/ico_feedback_1.png" width="50px"/>
+                    <div class="f-des">付款后无法上网</div>
+                </li>
+                <li class="f-item" data-type="other">
+                    <img src="http://s.miwifi.com/sns_wifi_share/img/ico_feedback_2.png" width="50px"/>
+                    <div class="f-des">其它问题</div>
+                </li>
+            </ul>
+            <div  class="f-input">
+                <input type="text" class="f-input-des" placeholder="详细描述（选填）"/>
+                <input type="tel" class="f-input-phone" placeholder="手机号（选填，方便有问题时与您联系）"/>
+            </div>
+            <div  class="f-btn">
+                <input type="button" class="f-btn-submit" value="提交"/>
+                <input type="button" class="f-btn-cancel" value="取消" />
+            </div>
+        <div class="f-footer">客服热线: 400-100-5678</div>
+    </div>
+</script>
+
+<script type="text/tmpl" id="tplGuestconnectSand">
+  <img src="//s.miwifi.com/sns_wifi_share/img/ico_sand.png">
+  <h3>上网申请已发送</h3>
+  <p>请等待管理员审核</p>
+</script>
+
+<script type="text/tmpl" id="tplGuestconnectSandErr">
+  <img src="//s.miwifi.com/sns_wifi_share/img/ico_error.png">
+  <h3>{$msg}</h3>
+  <p><a href="javascript:void(0)" onclick="location.reload(1)">请刷新网页重试</a></p>
+</script>
+
+<script type="text/tmpl" id="tplGuestconnectSucc">
+  <img src="//s.miwifi.com/sns_wifi_share/img/ico_succ.png">
+  <h3>上网申请已通过</h3>
+  <p>你现在可以免费上网了</p>
+</script>
+
+<script type="text/tmpl" id="tplGuestconnectError">
+  <img src="//s.miwifi.com/sns_wifi_share/img/ico_error.png">
+  <h3>抱歉，管理员拒绝了你的上网申请</h3>
+  <p>建议联系管理员好好沟通一下</p>
+</script>
+
+<script src="http://s.miwifi.com/jquery/2.1.0/jquery-2.1.0.min.js"></script>
+<script src="//s.miwifi.com/sns_wifi_share_v0510/js/main.js"></script>
+<script>
+    MIWIFI_MONITOR.setProject('sns_wifi_share_v0604');
+    MIWIFI_MONITOR.getTrack();
+</script>
+</body>
+</html>

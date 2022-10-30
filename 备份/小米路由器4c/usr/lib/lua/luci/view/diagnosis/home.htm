@@ -1,0 +1,237 @@
+<%
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+local romVersion = XQSysUtil.getRomVersion()
+local _romChannel = XQSysUtil.getChannel()
+local romChannel = _("开发版")
+if _romChannel == "current" then
+	romChannel = _("内测版")
+end
+if _romChannel == "release" then
+	romChannel = _("稳定版")
+end
+local misc = XQSysUtil.getMiscHardwareInfo()
+local bbsUrl = misc.bbs
+
+local hardware = string.lower( XQSysUtil.getHardware() )
+local color = XQSysUtil.getColor()
+local routerSrc = resource.."/web/img/topograph/".."router_"..hardware.."_".. color..".png"
+%>
+<%include("web/inc/head")%>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="cache-control" content="max-age=0" />
+<meta http-equiv="cache-control" content="no-cache" />
+<meta http-equiv="expires" content="0" />
+<meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
+<meta http-equiv="pragma" content="no-cache" />
+<title><%:小米路由器%></title>
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/diagnosis/css/diagnosis.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body class="diagnosis">
+<div id="doc">
+	<div id="hd">
+		<h1 class="diagnosis-status" id="nettbstatus"><%:小米路由器网络诊断中...%></h1>
+		<div class="netmap">
+			<ul class="clearfix">
+				<li class="devices">
+					<img src="<%=resource%>/diagnosis/img/ico_devices.png">
+					<p><%:终端设备%></p>
+				</li>
+				<li id="devline" class="line line-scaning"></li>
+				<li class="router">
+					<img src="<%=routerSrc%>">
+					<p><%:小米路由器%></p>
+				</li>
+				<li id="netline" class="line line-scaning"></li>
+				<li class="internet">
+					<img src="<%=resource%>/diagnosis/img/ico_internet.png">
+					<p><%:互联网%></p>
+				</li>
+			</ul>
+		</div>
+	</div>
+	<div id="bd" class="mod-giagnosis-step">
+		<div class="item scaning">
+			<%:正在进行网络诊断，请稍候%>
+			<div class="loading-bar" style="width:300px;"></div>
+		</div>
+		<div class="item result-ok" style="display:none;">
+			<img src="<%=resource%>/diagnosis/img/ico_succ.png">
+			<p><%:恭喜！网络连接正常%></p>
+			<a href="#" class="btn btn-dft2 btn-l btn-retry"><span><%:重新诊断%></span></a>
+		</div>
+		<div class="item result-err" style="display:none;">
+			<div id="giagnosisresult"></div>
+			<div class="btns">
+				<a href="#" class="btn btn-dft2 btn-l btn-retry"><span><%:重新诊断%></span></a>
+			</div>
+		</div>
+	</div>
+	<div id="ft">
+		<p><%:系统版本%>: MiWiFi Rom <%=romVersion%> <%=romChannel%>&nbsp;&nbsp;&nbsp;&nbsp;<%:MAC地址%>: <%=macdefault%></p>
+		<p>&copy; 2014 <%:小米路由器%> <span class="split">|</span> <a href="http://miwifi.com" target="_blank"><%:小米路由器后台%></a></p>
+	</div>
+</div>
+<script type="text/tmpl" id="tplnettdres">
+<table>
+	<thead>
+		<tr>
+			<th class="s0"><%:诊断问题%></th>
+			<th class="s1"><%:可能原因%></th>
+			<th class="s2"><%:解决办法%></th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td class="s0 wrap">{$title}</td>
+			<td class="s3 wrap" colspan="2">
+				<table class="resolvetb">
+				{for(var i=0, len=$reason.length;i<len;i++)}
+				<tr {if(i==0)}class="first"{/if}>
+				<td class="ss0">{$reason[i]}</td>
+				<td class="ss1">{$resolve[i]['text']}</td>
+				<td class="ss2">{$resolve[i]['action']}</td>
+				</tr>
+				{/for}
+				</table>
+			</td>
+		</tr>
+	</tbody>
+</table>
+</script>
+<script type="text/tmpl" id="tplnettdresMobile">
+<table>
+    <thead>
+        <tr>
+            <th class="gray"><%:诊断问题%></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                <table class="resolvetb">
+                    <tr class="first">
+                        <td class="wrap">{$title}</td>
+                    </tr>
+                    {for(var i=0, len=$reason.length;i<len;i++)}
+                    <tr>
+                        <td class="wrap">
+                            <div class="clearfix"><span class="label gray"><%:可能原因%>:</span>  <div class="oh">{$reason[i]}</div> </div>
+                            <div class="clearfix"><span class="label gray"><%:解决办法%>: </span> <div class="oh">{$resolve[i]['text']} </div> </div>
+                            <div class="btn-div">{$resolve[i]['action']}</div>
+                        </td>
+                    </tr>
+                    {/for}
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+</script>
+<%include("web/inc/g.js")%>
+<script>
+$(function(){
+	if (!window.location.origin){
+		window.location.origin = window.location.protocol+"//"+window.location.host;
+	}
+	function buildUrl( s, token ){
+		return window.location.origin + '/cgi-bin/luci/;stok=' + token+ '/web/setting/' + s;
+	}
+	function buildAction( action ){
+		var url;
+		if ( /;stok=/.test(location.href)) {
+			var token = location.href.match(/;stok=([^/]*)\//)[1];
+			url = buildUrl(action, token);
+
+		} else {
+			url = window.location.origin + '/cgi-bin/luci/web/login?action=' + action;
+		}
+		return '<a class="btn btn-dft3 btn-s" href="' + url + '"><span><%:立即修复%></span></a>';
+	}
+    var isMobile = function(){
+        return navigator.userAgent.match( /Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile/i )
+    };
+	var apiNettb = '<%=luci.dispatcher.build_url("api", "xqnetdetect", "nettb")%>';
+	var mapResults = {
+		'1': {
+			title: '<%:路由器没有检测到WAN口网线接入%>',
+			reason: ['<%:路由器WAN口没有网线接入%>','<%:接入路由器的网线损坏了%>','<%:路由器网络接口损坏了%>'],
+			resolve: [
+				{ text: '<%:请检查路由器是否已经插好网线%>', action: ''},
+				{ text: '<%:更换一根网线再尝试连接%>', action: ''},
+				{ text: '<%:联系客服检修%>', action: ''}
+			]
+		},
+		'2': {
+			title: '<%:DHCP服务没有响应%>',
+			reason: ['<%:当前接入的网络可能不支持DHCP连接模式%>','<%:DHCP服务异常%>'],
+			resolve: [
+				{ text: '<%:请检查是否需要修改外网连接方式%>', action: buildAction('wan')},
+				{ text: '<%:请联系运营商解决%>', action: ''}
+			]
+		},
+		'3': {
+			title: '<%:宽带拨号服务无响应%>',
+			reason: ['<%:调制解调器（猫）拨号异常%>'],
+			resolve: [
+				{ text: '<%:尝试重启一下调制解调器（猫）再拨号%>', action: ''}
+			]
+		},
+		'4': {
+			title: '<%:上级网络IP与路由器局域网IP有冲突%>',
+			reason: ['<%:上级网络IP与路由器局域网IP有冲突%>'],
+			resolve: [{ text: '<%:请检查路由器局域网IP地址设置%>', action: '<a href="#" id="ripconflict" class="btn btn-dft3 btn-s"><span><%:立即修复%></span></a>'}]
+		},
+		'5': {
+			title: '<%:网关不可达%>',
+			reason: ['<%:网关不可达%>'],
+			resolve: [{ text: '<%:请检查路由器上级网络的连接和相关设置是否有误%>', action: ''}]
+		},
+		'6': {
+			title: '<%:DNS服务器无响应%>',
+			reason: ['<%:可能是DNS服务器设置错误%>'],
+			resolve: [{ text: '<%:请检查DNS设置是否有误，若无特殊需求建议使用默认推荐设置。%>', action: buildAction('wan')}]
+		},
+		'7': {
+			title: '<%:自定义的DNS服务无响应%>',
+			reason: ['<%:可能是DNS服务器设置错误%>'],
+			resolve: [{ text: '<%:请修改DNS设置，若无特殊需求建议使用默认推荐设置%>', action: buildAction('wan')}]
+		},
+		'8': {
+			title: '<%:中继连接出现异常%>',
+			reason: ['<%:中继服务出现异常%>'],
+			resolve: [{ text: '<%:请检查中继设置是否有误，并重新尝试中继%>', action: ''}]
+		},
+		'9': {
+			title: '<%:中继连接出现异常%>',
+			reason: ['<%:中继服务出现异常%>'],
+			resolve: [{ text: '<%:请检查中继设置是否有误，并重新尝试中继%>', action: ''}]
+		},
+		'10': {
+			title: '<%:网络访问出现异常%>',
+			reason: ['<%:网络访问出现异常%>'],
+			resolve: [{ text: '<%:请检查静态IP等设置是否有误%>', action: ''}]
+		},
+		'31': {
+			title: '<%:宽带拨号出现多播异常%>',
+			reason: ['<%:可能是出现了宽带同帐号多播问题%>'],
+			resolve: [{ text: '<%:建议重启调制解调器（猫）和路由器重新尝试拨号%>', action: ''}]
+		},
+		'32': {
+			title: '<%:PPPoE拨号失败(错误码691)%>',
+			reason: ['<%:宽带拨号帐号密码输入错误%>','<%:宽带因欠费无法继续使用%>'],
+			resolve: [
+				{ text: '<%:请检查帐号密码是否输入正确%>', action: buildAction('wan')},
+				{ text: '<%:联系运营商解决%>', action: ''}
+			]
+		},
+		'33': {
+			title: '<%:PPPoE拨号失败(错误码691)%>',
+			reason: ['<%:宽带拨号帐号密码输入错误%>','<%:宽带因欠费无法继续使用%>'],
+			resolve: [
+				{ text: '<%:请检查帐号密码是否输入正确%>', action: buildAction('wan')},
+				{ text: '<%:联系运

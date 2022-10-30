@@ -1,0 +1,9 @@
+
+config core 'common'
+	option PRIVACY '1'
+	option ROUTER_NAME 'Xiaomi_ABAC'
+	option ROUTER_NAME_PENDING '1'
+	option ROUTER_LOCALE '家'
+	option INITTED 'YES'
+	option BANDWIDTH '0'
+

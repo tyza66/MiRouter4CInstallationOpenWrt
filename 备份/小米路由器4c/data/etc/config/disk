@@ -1,0 +1,20 @@
+# Copyright (C) 2006 OpenWrt.org
+#
+# setting.status 0: no hdd
+#                1: hdd exists
+#
+# disk.status    0: okay, mounted
+#		 1: need to do fsck
+#		 2: no mounted
+#
+
+config disk setting
+	option total    1
+	option status   0
+
+config disk p1
+	option name     data
+	option node     '/dev/mtd7'
+	option shared   0
+	option status   0
+	option type     jffs2

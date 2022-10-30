@@ -1,0 +1,236 @@
+<%
+    --[[
+        Info    网络拓扑图
+    ]]--
+    local XQVersion = require "xiaoqiang.XQVersion"
+    local ver = XQVersion.webVersion
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/topograph.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <div id="hd">
+        <div class="inner">
+            <div class="mod-head clearfix">
+                <h1 id="logo"><img alt="<%:小米路由器%>" src="<%=resource%>/web/img/logo.png"></h1>
+                <h2><%:小米路由器网络拓扑图%></h2>
+            </div>
+        </div>
+    </div>
+    <div id="bd">
+        <div class="topo-graph-out">
+            <div class="topo-graph">
+                <div class="tree">
+                    <ul>
+                        <li id="root" class="root-li">
+                             <div class="net">
+                                <img data-hover-src="<%=resource%>/web/img/icons/icon_internet_on.png" src="<%=resource%>/web/img/icons/icon_internet.png" />
+                                <p><%:互联网%></p>
+                             </div>
+                             <div>
+                                <span class="line-net"></span>
+                             </div>
+                             <!-- <div class="router-root">
+                                <a href=""><img src="img/ico_r1d.png" /></a>
+                                <div class="clearfix root-name">
+                                    <span class="name"><em>shlegn(home)</em></span>
+                                    <span class="info"><em>主路由器</em></span>
+                                </div>
+                                <span class="wifi"><i class="ico ico-wifi-on"></i>Wi-Fi:<em>xiaomixxx</em></span>
+                             </div> -->
+                             <!-- <div class="router-item">
+                                <a href=""><img src="img/router_r1c_100.png" /></a>
+                                <div class="clearfix">
+                                    <span class="name">sgewwwwwgwwwggw</span>
+                                    <span class="locale">(成为该为各位各位)</span>
+                                </div>
+                                <span class="wifi"><i class="ico ico-wifi-on"></i>Wi-Fi:<em>xiaomixxx</em></span>
+                             </div> -->
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%include("web/inc/footer")%>
+
+</div>
+<script type="tmpl/html" id="rootroutertpl">
+    <div class="router-root">
+        <a target="_blank" href="{$link}"><img data-hover-src="{$hoverpic}" src="{$pic}" /></a>
+        <div class="clearfix root-name">
+            <span class="name"><em>{$name}{$locale}</em></span>
+            <span class="info"><em><%:主路由器%></em></span>
+        </div>
+        <span class="wifi"><em>{$ip}</em></span>
+    </div>
+</script>
+<script type="tmpl/html" id="routertpl">
+    <div class="router-item">
+        <a class="link-{$hardware}" target="_blank" href="{$link}"><img data-hover-src="{$hoverpic}" src="{$pic}" /></a>
+        {if($locale)}
+        <div class="clearfix">
+            <span class="name">{$name}</span>
+            <span class="locale">{$locale}</span>
+        </div>
+        {else}
+            {if($name)}
+                <div class="clearfix no-locale">
+                    <span class="name">{$name}</span>
+                </div>
+            {else}
+                <div class="clearfix">
+                    <%:小米Wi-Fi放大器%>
+                </div>
+            {/if}
+        {/if}
+        <span class="wifi"><em>{$ip}</em></span>
+    </div>
+</script>
+<%include("web/inc/g.js")%>
+<!--[if lt IE 8]>
+<script src="<%=resource%>/web/js/IE9.js?v=<%=ver%>"></script>
+<![endif]-->
+<script type="text/javascript">
+$(function(){
+    //存储路由器节点字符
+    var html = [];
+    var routerColor = {
+        "100":"黑色",
+        "101":"白色",
+        "102":"橘色",
+        "103":"绿色",
+        "104":"蓝色",
+        "105":"粉色"
+    };
+    // get data
+    var getTopoGraph = function( callback ){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "topo_graph")%>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res){
+                if( res.code == 0 ){
+                    callback && callback( res );
+                }else{
+                    $.alert( res.msg ).lock().time( 5000 );
+                }
+            }
+        });
+    };
+    //取得对应路由器图片地址
+    var getRouterPic = function( hardware, color ){
+        var src = '';
+        var hoverSrc = '';
+        var base = '<%=resource%>/web/img/icons/';
+        src = base + 'router_' + hardware.toLowerCase() + '_' + color + '.png';
+        hoverSrc = base + 'router_' + hardware.toLowerCase() + '_' + color + '_on.png';
+        return {
+            src: src,
+            hoverSrc: hoverSrc
+        }
+    };
+    //创建路由根节点
+    var createRouterRoot = function( obj ){
+        var tpl = $('#rootroutertpl').html();
+        var html = '';
+        html = StringH.tmpl(tpl, {
+            pic: getRouterPic( obj.hardware, obj.color ).src,
+            name: obj.name,
+            locale: obj.locale ? '(' + obj.locale + ')' : '',
+            link: 'http://' + obj.ip,
+            ip: obj.ip,
+            hoverpic: getRouterPic( obj.hardware, obj.color ).hoverSrc
+        });
+        $('#root').append( html );
+    };
+    //创建路由器单节点
+    var createRouterItem = function( obj ){
+        var tpl = $('#routertpl').html();
+        var item = '';
+        html.push( '<li>' );
+        item = StringH.tmpl(tpl, {
+            pic: getRouterPic( obj.hardware, obj.color ).src,
+            name: obj.name,
+            locale: obj.locale ? '(' + obj.locale + ')' : '',
+            link: 'http://' + obj.ip,
+            ip: obj.ip,
+            hardware: obj.hardware.toLowerCase(),
+            hoverpic: getRouterPic( obj.hardware, obj.color ).hoverSrc
+        });
+        html.push( item );
+    };
+    //创建所有路由器节点
+    var createRouter = function( leafs ){
+        html.push( '<ul>' );
+
+        $(leafs).each(function(index, item){
+            createRouterItem( item );
+            if( item.leafs ){
+                createRouter( item.leafs );
+            }else{
+                html.push( '</li>' );
+            }
+        });
+
+        html.push( '</ul>' );
+    };
+    /*调整位置*/
+    var adjustPosition = function(){
+        var treeWidth = $('#root > ul').width();
+        var outerWidth = $('#bd').width();
+
+        if( treeWidth < outerWidth ){
+            $('.topo-graph-out').css({
+                "margin-left": ( outerWidth - treeWidth )/2
+            });
+        }
+        $('.topo-graph-out').css({
+            width: treeWidth
+        });
+    };
+
+    var addEvent = function(){
+        var imgs = $('.tree img');
+        imgs.each(function(index, item){
+            var src = $(this).attr('src');
+            var hoverSrc = $(this).attr('data-hover-src');
+            $(this).hover(function(){
+                $(this).attr('src', hoverSrc);
+            }, function(){
+                $(this).attr('src', src);
+            });
+        });
+
+        $( 'body' ).delegate( '.link-r01', 'click', function(e) {
+            e.preventDefault();
+            $.alert( '<%:请使用小米路由器App进行管理%>' );
+        });
+    };
+
+    getTopoGraph( function( res ){
+        if( res.show == 0 ){
+            return;
+        }else{
+            /*由接口数据创建路由器节点*/
+            createRouterRoot( res.graph );
+            createRouter( res.graph.leafs );
+            $('#root').append( html.join('') ).show();
+            //ie8不支持 :first-child :last-child css
+            if( $.browser.version == '8.0' ){
+                $('.tree li li:first-child').addClass('first-child');
+                $('.tree li li:last-child').addClass('last-child');
+            }
+            adjustPosition();
+            addEvent();
+        }
+    });
+});
+</script>
+</body>
+</html>

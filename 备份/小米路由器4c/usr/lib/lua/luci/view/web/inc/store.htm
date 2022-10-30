@@ -1,0 +1,73 @@
+<div class="mod-nav-disk-content mod-nav-disk-content-r1c">
+    <div class="mod-set mod-download">
+        <div class="hd clearfix">
+            <a href="http://www1.miwifi.com/miwifi_download.html" target="_blank" class="btn btn-primary btn-m"><span><%:立即下载客户端%></span></a>
+            <h3><%:如何玩转小米路由存储%></h3>
+        </div>
+        <div class="bd clearfix">
+            <div class="how-play-item bor-r ">
+                <div class="inner pad-r">
+                    <div class="img-box">
+                        <img src="<%=resource%>/web/img/store_r1c_how1.png" >
+                    </div>
+                    <h4><%:文件共享与访问%></h4>
+                    <p><%:安装PC和Mac客户端，可以轻松访问小米路由器硬盘%></p>
+                </div>
+            </div>
+            <div class="how-play-item ">
+                <div class="inner pad-l">
+                    <div class="img-box">
+                        <img src="<%=resource%>/web/img/store_r1c_how2.png" >
+                    </div>
+                    <h4><%:文件共享与访问%></h4>
+                    <p><%:安装手机APP，你可以用更酷的方式浏览照片和影片%></p>
+                </div>
+            </div>
+            <div class="how-play-item bor-r ">
+                <div class="inner pad-r">
+                    <div class="img-box">
+                        <img src="<%=resource%>/web/img/store_r1c_how3.png" >
+                    </div>
+                    <h4><%:文件下载%></h4>
+                    <p><%:通过手机、电脑客户端，你可以随时随地添加下载任务%></p>
+                </div>
+            </div>
+            <div class="how-play-item ">
+                <div class="inner pad-l">
+                    <div class="img-box">
+                        <img src="<%=resource%>/web/img/store_r1c_how4.png" >
+                    </div>
+                    <h4><%:文件备份%></h4>
+                    <p><%:开启相册备份后，回家手机上的照片将自动备份到小米路由器上，无需担心手机空间存储不足或数据丢失%></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="mod-nav-disk-content mod-nav-disk-content-ext mod-nav-disk-content-r1c hide">
+    <div class="mod-set mod-cat-io-line clearfix">
+        <div class="cat">
+            <div class="hd clearfix">
+                <h3><%:文件类型存储统计%></h3>
+                <div class="hd-text">
+                    <span><%:总容量%>:<em id="extcapacity"></em></span>|<span><%:已用%>:<em id="extused"></em></span>
+                </div>
+            </div>
+            <div class="bd">
+                <div class="canvas">
+                    <table id="noextdiskindexing">
+                        <tr>
+                            <td width="200" valign="middle">
+                                <div class="chart" id="extpiechartcat" style="width:180px; height:180px;"></div>
+                            </td>
+                            <td valign="top">
+                                <div id="extpiechartcattable" class="charttable"></div>
+                            </td>
+                        </tr>
+                    </table>
+                    <p id="extdiskindexing" class="extdiskindexing hide"><%:正在索引中...%></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

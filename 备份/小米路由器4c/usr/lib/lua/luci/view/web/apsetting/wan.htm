@@ -1,0 +1,42 @@
+<%
+--[[
+    Info    路由器中继模式切换
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = string.upper(luci.sys.net.ip4mac(remote_addr))
+local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local netMode = 0
+local mode = XQFunction.getNetMode()
+if mode == "lanapmode" then
+    netMode = 2
+elseif mode == "wifiapmode" then
+    netMode = 1
+end
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/upgrade.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <%include("web/inc/netmod")%>
+        <%if netMode==1 then%>
+        <%include("web/inc/aprouterchange")%>
+        <%end%>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+<%include("web/inc/netmod.js")%>
+<%if netMode==1 then%>
+<%include("web/inc/aprouterchange.js")%>
+<%end%>
+</body>
+</html>

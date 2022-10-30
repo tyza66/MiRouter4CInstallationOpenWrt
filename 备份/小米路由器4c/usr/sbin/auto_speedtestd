@@ -1,0 +1,348 @@
+#!/usr/bin/lua
+
+local px     = require "posix"
+local uci    = require 'luci.model.uci'
+local util   = require 'luci.util'
+local io     = require 'io'
+local socket = require 'socket'
+local json   = require 'json'
+local fs     = require "nixio.fs"
+local ubus   = require "ubus"
+
+local g_ubus
+local g_cursor
+local g_wan_busy_threshold = 100
+local g_wan_busy_zero_num  = 20
+local g_speedtest_interval = 24*60*60
+local g_current_date       = 0
+local g_current_day_trynum = 0
+local g_current_day_num    = 0
+local g_nextmins_speedtest = 0
+local g_lasttime_speedtest = 0
+local g_ubus_wanup_msg     = 1
+local g_max_log_num        = 0
+local g_current_log_num    = 0
+local MAX_TRYNUM_PERDAY    = 1
+local MAX_NUM_PERDAY       = 1
+local MAX_BAND_ERROR       = 0.7
+local g_user_band_up       = 0
+local g_user_band_down     = 0
+local g_begin_time    = "02:00"
+local g_end_time      = "06:00"
+local g_debug_file_id = nil
+local g_debug_file    = false
+local g_debug         = false
+local g_need_test_again  = false
+local TEST_AGAIN_TICKS   = 180
+
+local PREPARE_SPEEDTEST_XML_INTERVEL = 30
+local g_prepare_speedtest_xml_cnter  = 0
+local g_prepare_speedtest_xml_last_try = 0
+local g_prepare_speedtest_xml_trycnt = 0
+
+local g_test_again_ticks = TEST_AGAIN_TICKS
+
+local cfg = {
+	['host']          = "127.0.0.1",
+	['port']          = "1036",
+	['cmd_nettb']     = "/usr/sbin/nettb",
+	['cmd_upload']    = "/usr/bin/upload_speedtest",
+	['cmd_download']  = "/usr/bin/download_speedtest",
+	['cmd_speedtesturls']  = "/usr/bin/prepare_speedtest_xml",
+	['cmd_miqos_set'] = "/etc/init.d/miqos change_band ",
+	['cmd_miqos_get'] = "/etc/init.d/miqos show_band ",
+	['tmp_log']       = "/tmp/speedtest.log",
+	['cfg_file']      = "/etc/config/ab",
+	['tmp_cfg_dir']   = "/tmp/etc/config/",
+	['tmp_cfg_file']  = "/tmp/etc/config/ab",
+        ['tmp_speedtest_xml'] = "/tmp/speedtest_urls.xml"
+}
+
+local SPEEDTEST_VER="__UNDEFINED__"
+--[[
+if #arg >= 1 then
+    if arg[1] == 'oversea' then
+        SPEEDTEST_VER='OVERSEA'
+    end
+end
+--]]
+
+function time_to_mins(stime)
+    local _,_,hour = string.find(stime, '([0-9]+):')
+    local _,_,min  = string.find(stime, ':([0-9]+)')
+
+    return (60*tonumber(hour)+tonumber(min))
+end
+
+function mins_to_time(mins)
+    local hour,min = 0,0
+    min  = mins%60
+    hour = (mins-min)/60
+
+    return string.format("%2d:%2d", hour, min)
+end
+
+function log_to_file(fileid, msg)
+    local file_size = fileid:seek("end")
+
+    if file_size > 1024*1024 then
+	return
+    end
+    fileid:write(os.date("%x %X").." : "..msg.."\n")
+end
+
+--logger
+--[[1 Alert, 3 Error 7 Debug ]]--
+px.openlog("speedtest","np",LOG_USER)
+function logger(loglevel,msg)
+    if loglevel == 10 then
+	if g_debug then
+            px.syslog(3,msg)
+	    if g_debug_file and g_debug_file_id then
+		log_to_file(g_debug_file_id, msg)
+	    end
+	end
+    else
+        px.syslog(loglevel,msg)
+    end
+end
+
+function execl2(command)
+    local pp   = io.popen(command)
+    local line = ""
+    local data = {}
+
+    while true do
+        line = pp:read()
+        if line == nil then
+            break
+        end
+        data[#data+1] = line
+    end
+    pp:close()
+    return data
+end
+
+-- 读取cfg到tmp的meory文件夹中
+function cfg2tmp()
+    local r1,r2,r3 = fs.mkdirr(cfg.tmp_cfg_dir)
+    if not r1 then
+        logger(3, 'fatal error: mkdir failed, code:' .. r2 .. ',msg:'..r3)
+        return nil
+    end
+
+    r1,r2,r3 = fs.copy(cfg.cfg_file, cfg.tmp_cfg_file)
+    if not r1 then
+        logger(3,'fatal error: copy cfg file 2 /tmp memory failed. code:' .. r2 .. ',msg:'..r3)
+        return nil
+    end
+    return true
+end
+
+-- 拷贝最新配置到memory中
+function tmp2cfg()
+    if not fs.copy(cfg.tmp_cfg_file, cfg.cfg_file) then
+        logger(3,'fatal error: copy /tmp cfg file 2 /etc/config/ failed. exit.')
+        return nil
+    end
+    return true
+end
+
+function copytab(st)
+    local tab={}
+    for k,v in pairs(st or {}) do
+        if type(v) ~= 'table' then tab[k]=v
+        else tab[k]=copytab(v) end
+    end
+    return tab
+end
+
+function get_conf_std(conf,type,opt,default)
+    local x=uci.cursor()
+    local s,e = pcall(function() return x:get(conf,type,opt) end)
+    return e or default
+end
+
+-- execute command without anyoutput
+function exec_cmd(tblist, ignore_error)
+    local status = 0
+    for _,v in pairs(tblist) do
+        local cmd = v
+
+        if g_debug then
+            logger(3, '++' .. cmd)
+            cmd = cmd .. ' >/dev/null 2>>' .. cfg.tmp_log
+        else
+            cmd = cmd .. " &>/dev/null "
+        end
+
+        if os.execute(cmd) ~= 0 and ignore_error ~= 1 then
+            if g_debug then
+                os.execute('echo "^^^ '.. cmd .. ' ^^^ " >>' .. cfg.tmp_log)
+            end
+            logger(3, '[ERROR]:  ' .. cmd .. ' failed!')
+            dump_qdisc()
+            return false
+        end
+    end
+
+    return true
+end
+
+--split string with chars '$p'
+string.split = function(s, p)
+    local rt= {}
+    string.gsub(s, '[^'..p..']+', function(w) table.insert(rt, w) end )
+    return rt
+end
+
+function system_exit()
+    logger(3,'======== Process Exit. =====')
+
+    if g_debug_file_id then
+	g_debug_file_id:flush()
+	g_debug_file_id:close()
+    end
+    os.exit()
+end
+
+function system_init()
+    if g_debug then
+        os.execute("echo auto speedtest starting..... >>" .. cfg.tmp_log)
+    end
+
+    if g_debug and g_debug_file then
+      g_debug_file_id = io.open(cfg.tmp_log, "a")
+    end
+
+    -- 将配置文件copy到tmp内存中,并初始化cursor
+--[[    if not cfg2tmp() then
+        return false
+    end
+--]]
+
+    g_cursor = uci.cursor()
+    if not g_cursor then
+        logger(3,'set uci cursor failed. exit.')
+        return false
+    end
+
+    if is_user_band_manual() then
+        g_user_band_up   = 1
+        g_user_band_down = 1
+        logger(10,'user set band manual!')
+    else
+        logger(10,'user didnt set band manual!')
+    end
+--[[
+    if not g_cursor:set_confdir(cfg.tmp_cfg_dir) then
+        logger(3,'set tmp config dir failed. exit.')
+        return false
+    end
+--]]
+    g_ubus = ubus.connect()
+    if not g_ubus then
+        logger(3, 'failed to connect to ubusd!')
+        return false
+    end
+
+    logger(10, "************ auto speedtest startup **************")
+    g_current_date = tonumber(os.date("%d"))
+    g_nextmins_speedtest = get_nexttime_speedtest()
+
+    local lasttime = g_cursor:get("ab","settings","last_speedtest_time")
+    g_lasttime_speedtest =  tonumber(lasttime)
+
+    local maxlog   = g_cursor:get("ab","settings","max_log_num")
+    g_max_log_num  =  tonumber(maxlog)
+
+    local curntlog = g_cursor:get("ab","settings","current_log_num")
+    g_current_log_num =  tonumber(curntlog)
+
+    if g_current_log_num > g_max_log_num then
+	g_current_log_num = 1
+    end
+
+    logger(10, "init get lasttime: "..lasttime.." lastdate: "..os.date("%x %X", g_lasttime_speedtest))
+    logger(10, "max log num: "..g_max_log_num.." current log num: "..g_current_log_num)
+
+-- SIGTERM to clear and exit
+    px.signal(px.SIGTERM,
+        function ()
+            logger(3,'signal TERM to stop auto speed test.')
+            system_exit()
+        end)
+
+    px.signal(px.SIGINT,
+        function ()
+            logger(3,'signal INT to stop auto speed test.')
+            system_exit()
+        end)
+
+    return true
+end
+
+function system_init_nodaemon()
+    if g_debug then
+        os.execute("echo auto speedtest starting..... >>" .. cfg.tmp_log)
+    end
+
+    if g_debug and g_debug_file then
+      g_debug_file_id = io.open(cfg.tmp_log, "a")
+    end
+
+    g_cursor = uci.cursor()
+    if not g_cursor then
+        logger(3,'set uci cursor failed. exit.')
+        return false
+    end
+
+    if is_user_band_manual() then
+        g_user_band_up   = 1
+        g_user_band_down = 1
+        logger(10,'user set band manual!')
+    else
+        logger(10,'user didnt set band manual!')
+    end
+
+    return true
+end
+
+
+function get_list_wan_rate()
+    local ret = g_ubus:call("trafficd", "list_wan_rate", {})
+
+    if ret and ret.rate then
+	return ret.rate
+    end
+
+    return nil;
+end
+
+function get_lasttime_speedtest()
+    return g_lasttime_speedtest
+end
+
+function set_lasttime_speedtest()
+    g_lasttime_speedtest = os.time()
+
+    local date = string.format("%s", os.date("%x %X", g_lasttime_speedtest))
+
+    g_cursor:set("ab","settings","last_speedtest_date",date)
+    g_cursor:set("ab","settings","last_speedtest_time",tostring(g_lasttime_speedtest))
+    g_cursor:commit('ab')
+    logger(10, "set lasttime: "..g_lasttime_speedtest.." lastdate: "..os.date("%x %X", g_lasttime_speedtest))
+end
+
+-- choose a ramdom time between g_begin_time and g_end_time,
+-- in case all routers start speedtest at the same moment
+function get_nexttime_speedtest()
+    local start_mins = time_to_mins(g_begin_time)
+    local end_mins   = time_to_mins(g_end_time)
+
+    math.randomseed(os.time())
+    local next_mins = math.random(start_mins, end_mins)
+
+    logger(10, "start mins:  "..g_begin_time.." "..time_to_mins(g_begin_time))
+    logger(10, "end   mins:  "..g_end_time.." "..time_to_mins(g_end_time))
+    logger(10, "next  mins:  "..mins_to_time(next_m

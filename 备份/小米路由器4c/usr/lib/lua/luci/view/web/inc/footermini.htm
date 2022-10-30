@@ -1,0 +1,10 @@
+<%
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local misc = XQSysUtil.getMiscHardwareInfo()
+local bbsUrl = misc.bbs
+local xqCountryCode = require "xiaoqiang.XQCountryCode"
+local ccode = xqCountryCode.getBDataCountryCode()
+%>
+<div id="ft">
+    <p>&copy; 2015 <%:小米路由器%><%if (ccode=='CN') then%><span>|</span><a href="http://www1.miwifi.com" target="_blank"><%:官方网站%></a><span>|</span><a href="http://weibo.com/xiaomiluyouqi" target="_blank"><%:官方微博%></a><span>|</span><a href="https://land.xiaomi.net/res/e1fdbc3/land/miwifi/wf_2dcode.jpg" target="_blank" id="wechatcode"><%:官方微信%></a><span>|</span><a href="http://bbs.xiaomi.cn/f-354" target="_blank"><%:用户社区%></a><span>|</span><a target="_blank" href="http://www1.miwifi.com/miwifi_faq.html"><%:常见问题%></a><span>|</span><%:服务热线%>  400-100-5678<%end%><p>
+</div>

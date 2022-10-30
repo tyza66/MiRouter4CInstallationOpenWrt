@@ -1,0 +1,36 @@
+#!/bin/sh /etc/rc.common
+#
+# This script is used for internal application traffic control
+#
+
+START=99
+EXTRA_COMMANDS="start_sysmon stop_sysmon"
+EXTRA_HELP=""
+SYSMON_service="/usr/sbin/sysmon.lua"
+CMD_SYSMON_service="lua $SYSMON_service"
+
+start() {
+	[ -f "$SYSMON_service" ] && start_sysmon
+	return 0
+}
+
+stop() {
+	[ -f "$CMD_SYSMON_service" ] && stop_sysmon
+	return 0
+}
+
+start_sysmon() {
+    export PROCLINE=$CMD_SYSMON_service
+    export PROCFLAG=$PROCLINE
+    /usr/sbin/supervisord start
+
+    return 0
+}
+
+stop_sysmon() {
+    export PROCLINE=$CMD_SYSMON_service
+    export PROCFLAG=$PROCLINE
+    /usr/sbin/supervisord stop
+
+    return 0
+}

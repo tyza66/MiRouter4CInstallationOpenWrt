@@ -1,0 +1,48 @@
+<%
+    local ver = require("xiaoqiang.XQVersion").webVersion
+    local xqCountryCode = require "xiaoqiang.XQCountryCode"
+    local ccode = xqCountryCode.getCurrentCountryCode()
+
+    local lang = require("xiaoqiang.util.XQSysUtil").getLang()
+%>
+<%include("web/inc/head")%>
+    <title><%:小米路由器%></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+    <link href="<%=resource%>/web/css/agreement.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <div id="bd">
+        <div class="mod-agreenment">
+            <div class="privacy-cont-text">
+            <%if ccode == "US" then %>
+                <h1><img class="logo" src="<%=resource%>/web/img/en/logo_privacy_us.png" alt="<%:小米路由器%>" /></h1>
+            <%else%>
+                <h1><img class="logo" src="<%=resource%>/web/img/<%=lang%>/logo_privacy.png" alt="<%:小米路由器%>" /></h1>
+            <%end%>
+
+            <%if ccode == "HK" then%>
+                <%include("web/inc/privacy_HK")%>
+            <%elseif ccode == "TW" then %>
+                <%include("web/inc/privacy_TW")%>
+            <%elseif ccode == "KR" then %>
+                <%include("web/inc/privacy_KR")%>
+              <%elseif ccode == "US" then %>
+                <%include("web/inc/privacy_US_inter")%>   
+            <%else%>
+                <%if lang == "en" then%>
+                <%include("web/inc/privacy_US")%>
+                <%else%>
+                <%include("web/inc/privacy")%>
+                <%end%>
+            <%end%>
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footermini")%>
+</div>
+</body>
+</html>

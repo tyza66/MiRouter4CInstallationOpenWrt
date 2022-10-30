@@ -1,0 +1,25 @@
+backup_photo_dir_name###사진
+backup_movie_dir_name###영화
+backup_music_dir_name###음악
+backup_doc_dir_name###파일
+backup_other_dir_name###다른
+backup_custom_dir_name###사용자 정의 백업
+backup_harddisk_default_label###라우터 디스크
+backup_extdisk_default_label###이동식 디스크
+backup_dir_name_mark###[백업]
+extdisk_device_name###다른 카메라
+default_label_for_nolabel_extdisk###이동식 디스크
+init_create_video_dir_name###비디오
+init_create_image_dir_name###그림
+init_create_audio_dir_name###음악
+init_create_doc_dir_name###파일
+init_create_share_dir_name###몫
+init_create_download_dir_name###다운로드
+new_privacy_data_path###개인 정보
+backup_router_disk###[备份]라우팅 판
+xiaoyi_camera_dir_name###비디오 감시 카메라 - 외장 디스크
+xiaoyi_action_camera_name###모션 카메라
+xunlei_name###썬더 다운로드 엔진
+mitv_name###기장 TV 도우미
+taskmanager_xunlei_introduction###이것은 내장 되어 라우터 기장 다운로드 엔진 , 썬더 회원 고속 다운로드 채널을 즐길 수있는 것은 궁극적 인 경험 을 제공합니다
+taskmanager_system_introduction###이 수수 라우터 운영 체제 커널 , 시스템 동작을 종료 할 수없는 일련의 처리 를 포함 한다 인

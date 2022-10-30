@@ -1,0 +1,37 @@
+Name:	busybox
+State:	S (sleeping)
+Tgid:	20056
+Pid:	20056
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	32
+Groups:	
+VmPeak:	     332 kB
+VmSize:	     332 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     156 kB
+VmRSS:	     156 kB
+VmData:	      20 kB
+VmStk:	     136 kB
+VmExe:	     168 kB
+VmLib:	       0 kB
+VmPTE:	       8 kB
+VmSwap:	       0 kB
+Threads:	1
+SigQ:	0/472
+SigPnd:	00000000000000000000000000000000
+ShdPnd:	00000000000000000000000000000000
+SigBlk:	00000000000000000000000000000000
+SigIgn:	00000000000000000000000000021006
+SigCgt:	00000000000000000000000000000000
+CapInh:	0000000000000000
+CapPrm:	0000001fffffffff
+CapEff:	0000001fffffffff
+CapBnd:	0000001fffffffff
+Cpus_allowed:	1
+Cpus_allowed_list:	0
+voluntary_ctxt_switches:	27
+nonvoluntary_ctxt_switches:	0

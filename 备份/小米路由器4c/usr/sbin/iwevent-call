@@ -1,0 +1,81 @@
+#!/bin/sh
+
+export HOTPLUG_TYPE="$1"
+
+. /lib/functions.sh
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+LOGNAME=root
+USER=root
+ACTION=""
+export PATH LOGNAME USER
+if [ -f /tmp/iwevent_log ]; then
+    iwevent_log="y"
+else
+    iwevent_log="n"
+fi
+
+#   /* system status event */
+#   "had associated successfully",  /* IW_ASSOC_EVENT_FLAG */
+#   "had disassociated",    /* IW_DISASSOC_EVENT_FLAG */
+#   "had deauthenticated",  /* IW_DEAUTH_EVENT_FLAG */
+#   "had been aged-out and disassociated",  /* IW_AGEOUT_EVENT_FLAG */
+#   "occurred CounterMeasures attack",  /* IW_COUNTER_MEASURES_EVENT_FLAG */
+#   "occurred replay counter different in Key Handshaking", /* IW_REPLAY_COUNTER_DIFF_EVENT_FLAG */
+#   "occurred RSNIE different in Key Handshaking",  /* IW_RSNIE_DIFF_EVENT_FLAG */
+#   "occurred MIC different in Key Handshaking",    /* IW_MIC_DIFF_EVENT_FLAG */
+#   "occurred ICV error in RX", /* IW_ICV_ERROR_EVENT_FLAG */
+#   "occurred MIC error in RX", /* IW_MIC_ERROR_EVENT_FLAG */
+#   "Group Key Handshaking timeout",    /* IW_GROUP_HS_TIMEOUT_EVENT_FLAG */
+#   "Pairwise Key Handshaking timeout", /* IW_PAIRWISE_HS_TIMEOUT_EVENT_FLAG */
+#   "RSN IE sanity check failure",  /* IW_RSNIE_SANITY_FAIL_EVENT_FLAG */
+#   "set key done in WPA/WPAPSK",   /* IW_SET_KEY_DONE_WPA1_EVENT_FLAG */
+#   "set key done in WPA2/WPA2PSK", /* IW_SET_KEY_DONE_WPA2_EVENT_FLAG */
+#   "connects with our wireless client",    /* IW_STA_LINKUP_EVENT_FLAG */
+#   "disconnects with our wireless client", /* IW_STA_LINKDOWN_EVENT_FLAG */
+#   "scan completed"    /* IW_SCAN_COMPLETED_EVENT_FLAG */
+#   "scan terminate! Busy! Enqueue fail!"   /* IW_SCAN_ENQUEUE_FAIL_EVENT_FLAG */
+
+while read msg; do
+
+    #[ "$iwevent_log" == "y" ] && logger "$msg"
+
+    eval $(lua -e "local s, e, time, dev, sta, event = \
+string.find('$msg','^(%S+)%s+(%S+)%s+Custom driver event:.*STA%((.*)%)%s+(.*)$') \
+if s then \
+	print(string.format('\
+	TIME=\'%s\'; \
+	DEVNAME=\'%s\'; \
+	STA=\'%s\'; \
+	EVENT=\'%s\'', \
+	time, dev, sta, event)) \
+else \
+	print('EVENT=\'\'') \
+end ")
+
+    if [ "$EVENT" = "had associated successfully" ]; then
+        ACTION="ASSOC"
+    elif [ "$EVENT" = "had disassociated" -o "$EVENT" = "had deauthenticated" ]; then
+        ACTION="DISASSOC"
+    elif [ "$EVENT" = "blacklisted in MAC filter list" ]; then
+        ACTION="BLACKLISTED"
+    elif [ "$EVENT" = "had authorized successfully" ] ||
+        [ "$EVENT" = "set key done in WPA/WPAPSK" ] ||
+        [ "$EVENT" = "set key done in WPA2/WPA2PSK" ]; then
+        ACTION="AUTHORIZE"
+    elif [ "$EVENT" = "occurred MIC different in Key Handshaking" ]; then
+        ACTION="MIC_DIFF"
+    elif [ "$EVENT" = "occurred CounterMeasures attack" ]; then
+        ACTION="COUNTER_MEASURES"
+    else
+        ACTION=""
+    fi
+
+    [ -n "$ACTION" -a -d /etc/iwevent.d ] && {
+        export TIME DEVNAME STA EVENT ACTION
+        for script in $(ls /etc/iwevent.d/* 2>&-); do (
+            [ -f $script ] && . $script
+        ); done
+    }
+
+done

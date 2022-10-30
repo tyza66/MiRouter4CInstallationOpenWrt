@@ -1,0 +1,15 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2017 @Xiaomi
+
+START=40
+
+start() {
+	flag=`nvram get disable_sip_alg`
+	[ "$flag" = "1" ] || return 0
+
+	rmmod nf_nat_sip
+	rmmod nf_conntrack_sip
+
+	echo "SIP module removed" >> /tmp/messages
+}
+

@@ -1,0 +1,137 @@
+#!/bin/sh
+
+APP_SMARTVPN="/usr/sbin/smartvpn.sh"
+
+vpn_debug()
+{
+    logger -t vpn "$1"
+}
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "lan" ] && {
+	. /lib/functions/network.sh
+	network_get_subnet subnet lan
+	ip route add to $(fix_subnet $subnet) dev br-lan table vpn
+}
+
+[ "$ACTION" = "ifdown" ] && [ "$INTERFACE" = "vpn" ] && {
+	#if boot not finish, don't add vpn route until it finished
+	local bootcheck=$( cat /proc/xiaoqiang/boot_status )
+	[ "$bootcheck" == "3" ] || return
+
+	if [ -f /etc/ppp/vpndown.sh ]; then
+		. /etc/ppp/vpndown.sh
+	fi
+
+        if [ -f $APP_SMARTVPN ]; then
+                vpn_debug "smartvpn off"
+                $APP_SMARTVPN off
+        fi
+
+        vpn_debug "ip rule del table vpn."
+	ip rule del table vpn
+
+	while [[ $? == 0 ]]; do
+                vpn_debug "ip rule retry del table vpn."
+		ip rule del table vpn
+        done
+
+        local _nexthop=$(ubus call network.interface.wan status |jason.sh -b | awk '{if($1~/route\",0,\"nexthop/) {nexthop=$2; gsub(/^ *"|\" *$/,"", nexthop); printf("%s",nexthop); return} }' 2>/dev/null)
+        [ -z $_nexthop ] && return
+
+        hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+        [ "$hasdefaultroute" != "yes" ] && { 
+                vpn_debug "add default route gateway $_nexthop."
+                route add -net 0.0.0.0 netmask 0.0.0.0 gw $_nexthop metric 0 
+        }
+
+        hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+        [ "$hasdefaultroute" != "yes" ] && {
+                vpn_debug "add default route gateway $_nexthop metric 50."
+                route add -net 0.0.0.0 netmask 0.0.0.0 gw $_nexthop metric 50
+        }
+
+}
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "vpn" ] && {
+	#if boot not finish, don't add vpn route until it finished
+	local bootcheck=$( cat /proc/xiaoqiang/boot_status )
+	[ "$bootcheck" == "3" ] || return
+
+	if [ -f /etc/ppp/vpnup.sh ]; then
+		. /etc/ppp/vpnup.sh
+	fi
+	. /lib/functions/network.sh
+
+	network_get_dnsserver dnsservers vpn
+	for dnsserver in $dnsservers; do
+                vpn_debug "add $dnsserver to vpn"
+		ip rule add to $dnsserver table vpn
+	done
+
+	network_get_dnsserver dnsservers wan
+	for dnsserver in $dnsservers; do
+                vpn_debug "add $dnsserver to vpn"
+		ip rule add to $dnsserver table vpn
+	done
+
+        #send all traffic to vpn
+        wanproto=$(uci get network.wan.proto 2>/dev/null);
+
+        wan_device=$(uci get network.wan.ifname 2>/dev/null);
+        [ "$wanproto" == "pppoe" ] && wan_device="pppoe-wan"
+        [ -z $wan_device ] && wan_device="eth0.2"
+
+        trafficall=$(uci get network.vpn.trafficall 2>/dev/null);
+        vpnproto=$(uci get network.vpn.proto 2>/dev/null);
+
+        vpn_debug "try start, proto=$vpnproto, trafficall=$trafficall, wan_device=$wan_device."
+
+        [ "$trafficall" == "yes" -a $vpnproto != "" ] && {
+                local _nexthop=$(ubus call network.interface.wan status |jason.sh -b | awk '{if($1~/route\",0,\"nexthop/) {nexthop=$2; gsub(/^ *"|\" *$/,"", nexthop); printf("%s",nexthop); return} }' 2>/dev/null)
+                vpn_debug "send all traffic to vpn, dev $DEVICE to vpn, wan_device=$wan_device, _nexthop=$_nexthop"
+
+                [ -z $_nexthop ] && {
+                    vpn_debug "nexthop not exist, add default."
+                    ip route del default dev $wan_device
+                    ip route del default dev $wan_device metric 50
+                    ip route add default dev ${vpnproto}-vpn
+                    ip route flush cache
+                }
+
+                hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+                while [ "$hasdefaultroute" == "yes" ]
+                do
+                    vpn_debug "remove $wan_device default route."
+                    ip route del default dev $wan_device
+                    hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+                done
+
+                hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+                while [ "$hasdefaultroute" == "yes" ]
+                do
+                    vpn_debug "remove $wan_device default route metric 50."
+                    ip route del default dev $wan_device metric 50
+                    hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+                done
+
+                vpn_debug "add default proto for ${vpnproto}-vpn."
+                ip route add default dev ${vpnproto}-vpn
+                ip route flush cache
+                return;
+        }
+
+        #send all traffic to vpn except local
+        vpn_debug "send traffic to vpn except local, dev $DEVICE to vpn"
+
+        ip route add to 0/0 dev $DEVICE table vpn
+
+	network_get_subnet subnet lan
+	ip rule add from $(fix_subnet $subnet) table vpn
+        vpn_debug "add $subnet to vpn"
+
+        if [ -f $APP_SMARTVPN ]; then
+                vpn_debug "smartvpn on"
+                $APP_SMARTVPN on
+        fi
+
+}

@@ -1,0 +1,123 @@
+#!/bin/sh /etc/rc.common
+
+#START=99
+
+EXTRA_COMMANDS=" on off wan_up status next_time start stop set_userband debug_on debug_off do_speedtest"
+EXTRA_HELP="
+            on                                              Turn on Auto speed test service
+            off                                             Turn off Auto speed test service
+            wan_up                                          Send wan up messgage
+            status                                          Show status
+            next_time                                       Set next time to do speed test
+            set_userband                                    Set user config band
+            start                                           Start service
+            stop                                            Stop service
+            debug_on                                        Debug on
+            debug_off                                       Debug off
+            do_speedtest                                    Do speed test immediately
+            -------------------------------------------------"
+
+VERSION="__UNDEFINED__"
+
+if [ "$VERSION" == "OVERSEA" ]; then
+    EXECMD="/usr/sbin/auto_speedtestd oversea"
+else
+    EXECMD="/usr/sbin/auto_speedtestd"
+fi
+
+EXECMD_C="/usr/sbin/speedtest_cmd"
+export PROCLINE="/usr/bin/lua $EXECMD"
+export PROCFLAG=$PROCLINE
+
+#0,ok; non-0, Nok
+start() {
+    #check NETMODE 1stly
+    local mode
+    mode=`uci get xiaoqiang.common.NETMODE 2>/dev/null`
+    if [ "$mode" == "wifiapmode" -o "$mode" == "lanapmode" ]; then
+        echo "In AP mode, disable auto speed test. exit!"
+        return 0
+    fi
+
+    #check config file
+    mode=`uci get ab.settings.enabled 2>/dev/null`
+    if [ $mode -eq "0" ]; then
+        echo "ab config enabled not setted, exit!"
+        return 0
+    fi
+    #/usr/sbin/supervisord start
+    return 0
+}
+
+restart(){
+    #stop &>/dev/null
+    #start &>/dev/null
+    #return $?
+    return 0
+}
+
+on(){
+    #uci set ab.settings.enabled=1
+    #uci commit ab
+
+    start
+}
+
+stop(){
+    #running
+    #if [ $? == 1 ]; then
+    #    echo "auto speed service is not running. just exit."
+    #    return 0
+    #fi
+
+    #$EXECMD_C stop
+    #/usr/sbin/supervisord stop
+    return 0
+}
+
+off(){
+    #stop
+    #uci set ab.settings.enabled=0
+    #uci commit ab
+    return 0
+}
+
+running(){
+    #/usr/sbin/supervisord status
+    #if [ $? == 1 ]; then
+    #    return 1
+    #fi
+    return 0
+}
+
+wan_up(){
+    return 0
+}
+
+wan_down(){
+    return 0
+}
+
+status(){
+    $EXECMD_C status $@
+}
+
+next_time(){
+    $EXECMD_C next_time $@
+}
+
+set_userband(){
+    return 0
+}
+
+debug_on(){
+    $EXECMD_C debug_on $@
+}
+
+debug_off(){
+    $EXECMD_C debug_off $@
+}
+
+do_speedtest(){
+    /usr/sbin/auto_speedtestd do_speedtest
+}

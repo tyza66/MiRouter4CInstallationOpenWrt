@@ -1,0 +1,68 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+#waiting for filesystem ready, S01fstab, S10boot, S11tftpboot, S11ubus
+START=12
+
+conlog(){
+	msg="$@"
+	test -z "$msg" && return 0
+	DATE="`date`"
+	logger -t "netconfig[${$}]" "$msg"
+	echo "$DATE netconfig[${$}]: $msg" >> /dev/console 2>/dev/null
+	return 0
+}
+pipelog(){
+	local oneline
+	while read oneline
+	do
+		conlog "$oneline"
+	done
+}
+start() {
+	#is network config realy exist?
+	if [ -s /etc/config/network ]
+	then
+		conlog "INFO: loading exist /etc/config/network."
+		cat /etc/config/network 2>&1 | grep -v password | pipelog
+		config_load network
+		return 0
+	fi
+
+	mkdir -p /etc/config
+
+	echo '#### Loopback configuration
+config interface loopback
+	option ifname	lo
+	option proto	static
+	option ipaddr	127.0.0.1
+	option netmask	255.0.0.0
+
+#### LAN configuration
+config interface lan
+	option ifname	eth0.1
+	option type	bridge
+	option proto	static
+	option ipaddr	192.168.31.1
+	option netmask	255.255.255.0
+
+#### WAN configuration
+config interface wan
+	option ifname	eth0.2
+	option proto	dhcp
+
+### IFB interface for MiQoS
+config interface ifb
+        option ifname ifb0
+
+#### READY configuration
+config interface ready
+     option proto    static
+     option ipaddr   169.254.29.1
+     option netmask  255.255.255.0' > /etc/config/network
+
+	cat /etc/config/network 2>&1| pipelog
+
+	config_load network
+	return $?
+}

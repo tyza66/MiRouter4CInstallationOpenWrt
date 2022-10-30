@@ -1,0 +1,31 @@
+#!/bin/sh  
+# Show system version
+#
+
+usage() {
+    echo "Usage: `basename $1`: [-a] [-k] [-u] [-h]"
+    echo "  -a show XiaoQiang APP version"
+    echo "  -k show Linux Customized Kernel version"
+    echo "  -u show uboot version"
+    echo "  -h show this help"
+    exit 1
+}
+
+[ -f /usr/share/xiaoqiang/xiaoqiang_version ] && aver=`cat /usr/share/xiaoqiang/xiaoqiang_version | grep "option ROM" | awk '{print $3}'`
+[ -f /etc/linux_version ] && kver=`cat /etc/linux_version`
+[ -f /etc/cfe_version ] && uver=`cat /etc/uboot_version`
+while getopts ":akch" arg
+do
+    case $arg in
+        a) echo "XiaoQiang APP Version: $aver";;
+        k) echo "Linux Kernel Version: $kver";;
+        u) echo "Uboot Version: $uver";;
+        h) usage $0;;
+    esac
+	exit 1
+done
+
+echo "Uboot Version: $uver"
+echo "Linux Kernel Version: $kver"
+echo "XiaoQiang APP Version: $aver"
+exit 0

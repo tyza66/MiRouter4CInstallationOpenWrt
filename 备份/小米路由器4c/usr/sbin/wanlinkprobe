@@ -1,0 +1,79 @@
+#!/bin/sh
+. /lib/functions.sh
+. /lib/functions/network.sh
+. /lib/xq-misc/phy_switch.sh
+
+export LANG=C
+usage(){
+	echo "USAGE: $0 [timeout] [WAN] [pppoe dhcp|pppoe|dhcp]"
+}
+
+timeout="$1"
+test -z "$timeout" && timeout=2
+let timeout=$timeout+1-1 2>/dev/null
+test $? -ne 0 -a "$timeout" != '0' && timeout=2
+test $timeout -le 0 && timeout=2
+
+nic="$2"
+[ $nic == "WAN" ] && nic="wan"
+nic="${nic:-wan}"
+network_get_physdev realnic "$nic"
+realnic="${realnic:-eth0.2}"
+net_mode=$(uci -q get xiaoqiang.common.NETMODE)
+if [ -n "$net_mode" ] && [ $net_mode != "lanapmode" ] && [ $net_mode != "wifiapmode" ]; then
+   ifconfig eth0.2 &>/dev/null || {
+       vconfig add eth0 2
+       ifconfig eth0.2 up
+   }
+fi
+if sw_wan_link_detect; then
+    nicres="LINK=YES"
+else
+    nicres="LINK=NO"
+fi
+
+echo "$nicres"
+
+tobedetect="$3 $4"
+if [ "$tobedetect" = ' ' ]
+	then
+	tobedetect='pppoe dhcp'
+fi
+
+for oncheck in $tobedetect
+do
+	case "$oncheck" in
+		pppoe|PPPOE)
+			#check PPPOE
+                        hard_mode=$(uci -q get misc.hardware.model)
+                        if [ -n "$hard_mode" ] && [ $hard_mode == "R3D" ]; then
+                                ifconfig eth0 promisc >/dev/null 2>&1
+                        fi
+		        runt $timeout /usr/sbin/pppoe-discovery -I $realnic >/dev/null 2>&1
+			if [ $? -eq 0 ]
+				then
+				echo "PPPOE=YES"
+			else
+				echo "PPPOE=NO"
+			fi
+                        if [ -n "$hard_mode" ] && [ $hard_mode == "R3D" ]; then
+                                ifconfig eth0 -promisc >/dev/null 2>&1
+                        fi
+			;;
+		dhcp|DHCP)
+		        #check dhcp
+			udhcpc -B -C -n -s /bin/true -t 1 -T $timeout -i $realnic >/dev/null 2>&1
+			if [ $? -eq 0 ]
+				then
+				echo "DHCP=YES"
+			else
+				echo "DHCP=NO"
+			fi
+			;;
+		*)
+			echo "$oncheck=UNKNOW"
+			;;
+	esac
+done
+exit 0
+#

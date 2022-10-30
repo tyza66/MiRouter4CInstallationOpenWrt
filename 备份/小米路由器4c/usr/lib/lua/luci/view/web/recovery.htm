@@ -1,0 +1,77 @@
+<%
+    local XQVersion = require "xiaoqiang.XQVersion"
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local ver = XQVersion.webVersion
+    local hasDisk = 2
+    if XQSysUtil.diskExist() then
+        hasDisk = 1
+    end
+
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/recovery.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-rtstatus net-check-err" id="netstatus">
+            <div class="inner">
+                <h1><%:小米路由器已启动安全恢复模式%></h1>
+                <div class="disk" id="diskok">
+                    <div class="ico-diskst ico-diskst-ok"></div>
+                    <p><%:系统启动失败，可一键恢复%></p>
+                </div>
+                <div class="disk" id="diskerr">
+                    <div class="ico-diskst ico-diskst-err"></div>
+                    <p><%:系统启动失败，无内置硬盘%></p>
+                </div>
+            </div>
+        </div>
+        <div class="mod-recovery">
+            <p><%:哎呀，竟然启动失败了……%></p>
+            <p><%:别担心，小米路由器很坚强，当前的安全恢复模式也可以一样正常上网！%></p>
+            <div class="recovery" id="recoveryiserr">
+                <p><%:但是，小米路由器在没有硬盘的情况下无法支持更多功能。%></p>
+                <p><%:建议您安全断开电源，重新连接硬盘之后再次进入安全恢复模式，可以一键恢复系统。%></p>
+            </div>
+            <div class="recovery" id="recoveryisok">
+                <p><%:您还可以一键恢复系统，和升级一样简单。%></p>
+                <div class="btns">
+                    <a href="<%=luci.dispatcher.build_url("web", "setting","upgrade")%>" class="btn btn-dft"><span><%:通过OTA恢复系统%></span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+
+<%include("web/inc/g.js")%>
+<script>
+$(function(){
+    var recovery = $( '.recovery' ),
+        recoveryisok = $( '#recoveryisok' ),
+        recoveryiserr = $( '#recoveryiserr' ),
+        disk = $( '.disk' ),
+        diskok = $( '#diskok' ),
+        diskerr = $( '#diskerr' ),
+        diskType = <%=hasDisk%>;
+    if ( diskType === 1 ) {
+        recovery.hide();
+        disk.hide();
+        recoveryisok.show();
+        diskok.show();
+    } else {
+        recovery.hide();
+        disk.hide();
+        recoveryiserr.show();
+        diskerr.show();
+    }
+
+});
+</script>
+</body>
+</html>

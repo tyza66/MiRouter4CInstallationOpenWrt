@@ -1,0 +1,64 @@
+#!/bin/sh
+
+point_lan_ifnum(){
+
+loginfo=`cat /tmp/stat_points_privacy.log | grep lan_ifup_num`
+if [ -n "$loginfo" ]; then
+    echo "lan ifup loginfo already exist!"
+    return
+fi
+
+HARDWARE=`/sbin/uci get /usr/share/xiaoqiang/xiaoqiang_version.version.HARDWARE`
+if [ "$HARDWARE" == "R1CM" ]; then
+    portinfo=`/usr/sbin/ethstt`
+    port0=`echo $portinfo | awk '{print $2}'`
+    port1=`echo $portinfo | awk '{print $4}'`
+
+    if [ "$port0" == "0:up" -a "$port1" == "1:up" ]; then
+        logger stat_points_privacy lan_ifup_num=r1cm:router:2
+        echo "lan num is 2!"
+    elif [ "$port0" == "0:up" -o "$port1" = "1:up" ]; then
+        logger stat_points_privacy lan_ifup_num=r1cm:router:1
+        echo "lan num is 1"
+    elif [ "$port0" == "0:down" -a "$port1" = "1:down" ]; then
+        logger stat_points_privacy lan_ifup_num=r1cm:router:0
+        echo "lan num is 0"
+    else
+        echo "lan num unknown!"
+    fi
+elif [ "$HARDWARE" == "R3" ]; then
+    portinfo=`/usr/sbin/ethstt`
+    port0=`echo $portinfo | awk '{print $4}'`
+    port1=`echo $portinfo | awk '{print $10}'`
+
+    if [ "$port0" == "1:up" -a "$port1" == "4:up" ]; then
+        logger stat_points_privacy lan_ifup_num=r3:router:2
+        echo "lan num is 2!"
+    elif [ "$port0" == "1:up" -o "$port1" = "4:up" ]; then
+        logger stat_points_privacy lan_ifup_num=r3:router:1
+        echo "lan num is 1"
+    elif [ "$port0" == "1:down" -a "$port1" = "4:down" ]; then
+        logger stat_points_privacy lan_ifup_num=r3:router:0
+        echo "lan num is 0"
+    else
+        echo "lan num unknown!"
+    fi
+fi
+}
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] && {
+	. /lib/network/config.sh
+	ubus_call network.interface.wan status
+	json_select "route"
+	__idx=1
+	while json_is_a "$__idx" object; do
+		json_select "$((__idx++))"
+		json_get_var target "target"
+		json_get_var mask "mask"
+		json_get_var nexthop "nexthop"
+		route add -net $target/$mask gw $nexthop metric 50
+		json_select ".."
+	done
+	point_lan_ifnum
+}
+

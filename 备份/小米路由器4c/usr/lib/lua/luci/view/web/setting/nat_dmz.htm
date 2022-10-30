@@ -1,0 +1,206 @@
+<%
+--[[
+    Info    路由器端口转发
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local XQLanWanUtil = require("xiaoqiang.util.XQLanWanUtil")
+local ip = XQLanWanUtil.getLanWanInfo("lan")["ipv4"][1]["ip"]
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/nat.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/dmz.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+    <div id="doc">
+        <%include("web/inc/header")%>
+        <div id="bd" data-ip="<%=ip%>">
+            <div class="mod-set mod-nat">
+                <div class='hd'>
+                    <h3><%:端口转发%></h3>
+                    <!--
+                    <div class='switch'>
+                        <a href="#" data-status="0" class="btn-switch btn-switch-on" id="btnnat"></a>
+                    </div>
+                    -->
+                </div>
+                <div class="bd">
+                    <h3><%:端口转发规则列表：%></h3>
+                    <form name="portFormEdit">
+                        <table class="table table-nat">
+                            <thead>
+                                <tr>
+                                    <th><%:名称%></th>
+                                    <th><%:协议%></th>
+                                    <th><%:外部端口%></th>
+                                    <th><%:内部IP地址%></th>
+                                    <th><%:内部端口%></th>
+                                    <!--    <th><%:状态%></th> -->
+                                    <th class="center" width="230"><%:操作%></th>
+                                </tr>
+                            </thead>
+                            <tbody id="natlist_port">
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mod-set mod-nat">
+                <div class="bd">
+                    <h3><%:范围转发规则列表：%></h3>
+                    <form name="rangeFormEdit">
+                        <table class="table  table-nat">
+                            <thead>
+                                <tr>
+                                    <th><%:名称%></th>
+                                    <th><%:协议%></th>
+                                    <th><%:起始端口%></th>
+                                    <th><%:结束端口%></th>
+                                    <th><%:目标IP%></th>
+                                    <!-- <th><%:状态%></th> -->
+                                    <th class="center" width="230"><%:操作%></th>
+                                </tr>
+                            </thead>
+                            <tbody id="natlist_range">
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </div>
+
+            <div class='mod-set mod-nat'>
+                <div class="bd">
+                    <div class="item item-control">
+                        <button type="submit" id="apply" class="btn btn-primary btn-l"><span><%:保存并生效%></span></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- dmz -->
+
+            <div class="mod-dmz mod-set">
+                <div class="hd">
+                    <h3>DMZ</h3>
+                    <div class='switch'>
+                        <a href="#" data-status="0" class="btn-switch btn-switch-off" id="btndmz"></a>
+                    </div>
+                </div>
+                <div class="bd">
+                    <div class="mod-dmz" id="dmzinfo" style="">
+                        <%:开启DMZ功能可以将内网某一个设备的IP映射到外网，方便从外网访问到该设备。%>
+                    </div>
+                    <div class="mod-dmz" id="appdmz" style="display:none;">
+                        <form class="form form-dmz" name="dmzset" id="dmzset">
+                            <div class="form-item form-item-input">
+                                <label class="k dmz-k" style="width: 10em;right: 16px;"><%:DMZ IP地址%></label>
+                                <span class="v vi"><span id="prefix" class="ippfix"></span><input name="ipval" reqMsg="<%:IP地址最后一位%>" datatype="n-3" minValue="2" maxValue="254" id="ipval" type="text" class="ipt-text iplimit no-init" maxlength="3"></span>
+                                <em class="t"></em>
+                            </div>
+                            <div class="item-more">
+                                <span><%:DMZ状态：%></span>
+                                <span class=""><span id="ipOK"><%:未生效%></span></span>
+                            </div>
+                            <div class="form-contral">
+                                <a class="btn btn-primary btn-l" id="save"><span><%:应用%></span></a>
+                                <!-- <a class="btn btn-dft" id="cancel"><span><%:取消%></span></a> -->
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%include("web/inc/footer")%>
+
+</div>
+
+<script type="text/template" id="tpl_new_port">
+<form id="portForm" name="portForm" class="form form-horizontal">
+    <div class="form-item form-item-input">
+        <label for="name" class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-select">
+        <label for="proto" class="k"><%:协议%></label>
+        <span class="v">
+            <select  name="proto" class="beautify" style="">
+                <option value='1'>TCP</option>
+                <option value='2'>UDP</option>
+                <option value='3'><%:TCP和UDP%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="sport" class="k"><%:外部端口%></label>
+        <span class="v"><input type="text" name="sport" reqMsg="<%:外部端口%>" datatype="n-5" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input input-ip">
+        <label for="ip" class="k"><%:内部IP地址：%><span class="iphere"></span></label>
+        <span class="v"><input type="text" name="ip" reqMsg="<%:IP地址最后一位%>" datatype="n-3" minValue="2" maxValue="254" value="" class="ipt-text no-init" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="dport" class="k"><%:内部端口%></label>
+        <span class="v"><input type="text" name="dport" reqMsg="<%:内部端口%>" datatype="n-5" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-contral">
+    </div>
+</form>
+</script>
+
+<script type="text/template" id="tpl_new_range">
+<form id="rangeForm" name="rangeForm" class="form form-horizontal">
+    <div class="form-item form-item-input">
+        <label for="name" class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-select">
+        <label for="proto" class="k"><%:协议%></label>
+        <span class="v">
+            <select  name="proto" class="beautify" style="">
+                <option value='1'>TCP</option>
+                <option value='2'>UDP</option>
+                <option value='3'><%:TCP和UDP%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="fport" class="k"><%:起始端口%></label>
+        <span class="v"><input type="text" name="fport" reqMsg="<%:起始端口%>" datatype="n-5" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="tport" class="k"><%:结束端口%></label>
+        <span class="v"><input type="text" name="tport" reqMsg="<%:结束端口%>" datatype="n-5" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input input-ip">
+        <label for="ip" class="k"><%:目标IP：%><span class="iphere"></span></label>
+        <span class="v"><input type="text" name="ip" reqMsg="<%:IP地址最后一位%>" datatype="n-3" minValue="2" maxValue="254" value="" class="ipt-text no-init" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-contral">
+    </div>
+</form>
+</script>
+<script type="text/tem

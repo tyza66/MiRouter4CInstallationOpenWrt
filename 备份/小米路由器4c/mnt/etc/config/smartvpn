@@ -1,0 +1,25 @@
+
+config remote "vpn"
+	option disabled "1"
+      	option status "off"
+        option type vpn
+        option domain_file /etc/smartvpn/proxy.txt
+        option proxy_local_port  10080
+        option proxy_remote_ip   54.85.90.122
+
+#mac: devices which transfer through vpn
+#notmac: devices which not transfer through vpn
+#config device 'device'
+#        list mac '34:17:eb:d0:e6:f9'
+
+
+config dest 'dest'
+        list notnet '169.254.0.0/16'
+        list notnet '10.0.0.0/8'
+        list notnet '169.254.0.0/16'
+        list notnet '172.16.0.0/12'
+        list notnet '192.168.0.0/16'
+        list notnet '224.0.0.0/4'
+        list notnet '240.0.0.0/4'
+
+

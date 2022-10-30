@@ -1,0 +1,46 @@
+#!/bin/sh
+PPP_IPPARAM="$6"
+lockfile="/var/run/ppp-up.lock"
+
+ppp_lock() {
+    trap "lock -u $lockfile; exit 0" SIGHUP SIGINT SIGTERM
+    # try for some seconds
+    for i in $(seq 1 5); do
+        lock -n $lockfile && return 0
+        sleep 1
+    done
+    return 1
+}
+
+ppp_unlock() {
+    lock -u $lockfile
+}
+
+ppp_lock && {
+    logger -p9 -t ppp "ppp-up update interface, $@"
+    if [ -x "/etc/ppp/ppp.d/${PPP_IPPARAM}-up" ]; then
+        "/etc/ppp/ppp.d/${PPP_IPPARAM}-up" "$@"
+    else
+        . /lib/netifd/netifd-proto.sh
+        proto_init_update "$IFNAME" 1 1
+        proto_set_keep 1
+        [ -n "$PPP_IPPARAM" ] && {
+            [ -n "$IPLOCAL" ] && proto_add_ipv4_address "$IPLOCAL" 32 "" "${IPREMOTE:-2.2.2.2}"
+            [ -n "$IPREMOTE" ] && proto_add_ipv4_route 0.0.0.0 0 "$IPREMOTE"
+            [ -n "$DNS1" ] && proto_add_dns_server "$DNS1"
+            [ -n "$DNS2" -a "$DNS1" != "$DNS2" ] && proto_add_dns_server "$DNS2"
+        }
+        proto_send_update "$PPP_IPPARAM"
+        [ -d /etc/ppp/ip-up.d ] && {
+            for SCRIPT in /etc/ppp/ip-up.d/*; do
+                [ -x "$SCRIPT" ] && "$SCRIPT" "$@"
+            done
+        }
+        logger stat_points_privacy pppoe_up="1"
+    fi
+
+    ppp_unlock
+    return 0
+}
+
+logger -p9 -t ppp "ppp-up NOT update interface for no locker, $@"

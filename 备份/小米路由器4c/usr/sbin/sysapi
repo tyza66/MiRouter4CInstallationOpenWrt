@@ -1,0 +1,317 @@
+#!/bin/sh
+
+# Note: such sysapi file is invoked by web-Luci, so cannot be removed.
+# Anyway, its been restored again.
+#
+
+. /lib/lib.scripthelper.sh 
+TS="$(date -u +%s)"
+TUUID=$(echo "$@-$TS"|md5sum|awk '{print $1}'|head -c8)
+PARENTIDINFO=$PPID
+PCMD=$(awk -F'
+' '{OFS=" " ;print $0}' /proc/$PARENTIDINFO/cmdline|xargs)
+SCRIPTTAG="$SCRIPTTAG-$TUUID-$PARENTIDINFO-$PCMD"
+
+dlog "INFO: input ARGS: $@"
+
+ARGS=`echo $@|tr "[a-z]" "[A-Z]"`
+fun="$1"
+shift
+action="$1"
+shift
+#action=`echo $ARGS|grep -iEo "(set|get|del|update|commit)"`
+#fun=`echo  $ARGS|grep -iEo "(macfilter|traffic_ctl|system_info|dnsaccelerate|webinitrdr|pdnsd)"`
+macfilter_conf="/etc/config/macfilter"
+dnsaccelerate_conf="/etc/dnsmasq.securedomain.list"
+UCI="uci -q"
+CONFIGPATH="/tmp/etc/config"
+MACCONFIGFILE="$CONFIGPATH/macfilter"
+#PARAMETERAPPEND="-c${CONFIGPATH}"
+PARAMETERAPPEND=""
+FLUSH_MAC="rm -f $MACCONFIGFILE"
+UCI_SAVE="$UCI commit macfilter"
+
+apply_firewall() {
+    trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+    lock /var/run/fw3.lock
+    lua /usr/sbin/macfilterctl -v "$@"
+    lock -u /var/run/fw3.lock
+}
+
+usage(){
+	local idx
+	idx="$1"
+	case "$idx" in
+		macfilter)
+			elog "USAGE: $0 macfilter <set|get|update|del|commit> [wanmode|adminmode|<MAC=xx:xx:xx:xx:> [lan=yes|no] [wan=yes|no] [admin=yes|no] [pridisk=yes|no]]"
+		;;
+		traffic_ctl)
+			elog "USAGE: $0 traffic_ctl <set> <key=on|off>"
+		;;
+		system_info)
+			elog "USAGE: $0 system_info <get> <cpuload|memory|disk>"
+		;;
+		dnsaccelerate)
+			elog "USAGE: $0 dnsaccelerate <set> <appleacc=[on|off]>"
+		;;
+		webinitrdr)
+			elog "USAGE: $0 webinitrdr <set> <on|off>"
+		;;
+		pdnsd)
+			elog "USAGE: $0 pdnsd <set> <on|off>"
+		;;
+		*)
+			elog "USAGE: $0 <macfilter|traffic_ctl|system_info|webinitrdr|pdnsd> [function args ...]"
+		;;
+	esac
+	return 0
+}
+case "$fun" in
+    macfilter|MACFILTER)
+	mkdir -p ${CONFIGPATH} 2>/dev/null
+	[ -e "$MACCONFIGFILE" ] || cp -a ${macfilter_conf} ${CONFIGPATH}
+	if [ -d "$CONFIGPATH" ];then
+	    dlog "macfilter use config path $CONFIGPATH."
+	else
+	    CONFIGPATH="/etc/config"
+	    #PARAMETERAPPEND="-c${CONFIGPATH}"
+	    dlog "macfilter use config path /etc/config."
+	fi
+	for i in "$@"
+	do
+	    local op=$(echo $i | cut -f 1 -d'=' | tr "[A-Z]" "[a-z]")
+	    case $op in
+		lan)
+		    lan=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    shift
+		;;
+		wan)
+		    wan=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    shift
+		;;
+		admin)
+		    admin=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    shift
+		;;
+		pridisk)
+		    pridisk=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    shift
+		;;
+		mac)
+		    ccmac=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    mac=$(echo $ccmac | grep -iEo "[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}" | tr "[A-Z]" "[a-z]")
+		    shift
+		;;
+		wanmode)
+		    wmode=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    [ -n $wmode ] && gwmode="wanmode"
+		    shift
+		;;
+		lanmode)
+		    lmode=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    [ -n $lmode ] && glmode="lanmode"
+		    shift
+		;;
+		adminmode)
+		    amode=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    [ -n $amode ] && gamode="adminmode"
+		    shift
+		;;
+		pridiskmode)
+		    primode=$(echo ${i#*=} | tr "[A-Z]" "[a-z]")
+		    [ -n $primode ] && gprimode="pridiskmode"
+		    shift
+		;;
+	    esac
+	done
+	global_wan=$($UCI $PARAMETERAPPEND get macfilter.@mode[0].wan)
+	global_wan=${global_wan:-"blacklist"}
+	global_lan=$($UCI $PARAMETERAPPEND get macfilter.@mode[0].lan)
+	global_lan=${global_lan:-"blacklist"}
+	global_admin=$($UCI $PARAMETERAPPEND get macfilter.@mode[0].admin)
+	global_admin=${global_admin:-"blacklist"}
+	global_pridisk=$($UCI $PARAMETERAPPEND get macfilter.@mode[0].pridisk)
+	global_pridisk=${global_pridisk:-"whitelist"}
+	if [ -n "$mac" -o -n "$ccmac" ];then
+	    uciprefix=$($UCI $PARAMETERAPPEND show macfilter | grep "$mac" | cut -d\. -f1-2)
+	    fixwan=$($UCI $PARAMETERAPPEND get $uciprefix.wan)
+	    fixlan=$($UCI $PARAMETERAPPEND get $uciprefix.lan)
+	    fixadmin=$($UCI $PARAMETERAPPEND get $uciprefix.admin)
+	    fixpridisk=$($UCI $PARAMETERAPPEND get $uciprefix.pridisk)
+
+	    if [ "$global_wan" == "blacklist" ];then
+		[ -z "$wan" ] && [ -z "$fixwan" ] && wan="yes"
+	    else
+		[ -z "$wan" ] && [ -z "$fixwan" ] && wan="no"
+	    fi
+	    if [ "$global_lan" == "blacklist" ];then
+		[ -z "$lan" ] && [ -z "$fixlan" ] && lan="yes"
+	    else
+		[ -z "$lan" ] && [ -z "$fixlan" ] && lan="no"
+	    fi
+	    if [ "$global_admin" == "blacklist" ];then
+		[ -z "$admin" ] && [ -z "$fixadmin" ] && admin="yes"
+	    else
+		[ -z "$admin" ] && [ -z "$fixadmin" ] && admin="no"
+	    fi
+	    if [ "$global_pridisk" == "blacklist" ];then
+		[ -z "$pridisk" ] && [ -z "$fixpridisk" ] && pridisk="yes"
+	    else
+		[ -z "$pridisk" ] && [ -z "$fixpridisk" ] && pridisk="no"
+	    fi
+	fi
+	;;
+	TRAFFIC_CTL|traffic_ctl)
+		traffic_params=`echo $ARGS|grep -iEo "(FOREIGN_CTL|TRAFFIC_DNS|TRAFFIC_ALLVPN|NGINX_CACHE|NGINX_FILTER|NGINX_GUESTWIFI)(\=(on|off))?"`
+		key=`echo $traffic_params|cut -d"=" -f1`
+		status=`echo $traffic_params|cut -d"=" -f2`
+	;;
+	SYSTEM_INFO|system_info)
+		key=`echo $ARGS|grep -iEo "(cpuload|memory|disk)"`
+		cpu_load=`/usr/sbin/getstat.lua|cut -d"%" -f1`
+	;;
+	DNSACCELERATE|dnsaccelerate)
+		dnsaccelerate_params=`echo $ARGS|grep -iEo "appleacc=(on|off)"`
+		key=`echo $dnsaccelerate_params|cut -d"=" -f1`
+		status=`echo $dnsaccelerate_params|cut -d"=" -f2`
+	;;
+	webinitrdr|WEBINITRDR)
+		key=`echo $ARGS|grep -iEo "(on|off)"|tr "[A-Z]" "[a-z]"`
+		trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+		lock /var/run/fw3.lock
+		/usr/sbin/sysapi.firewall webinitrdr $key
+		lock -u /var/run/fw3.lock
+		exit $?
+	;;
+	PDNSD|pdnsd)
+		key=`echo $ARGS|grep -iEo "(on|off)"|tr "[A-Z]" "[a-z]"`
+	;;
+	*)
+		elog "WARNING: Unsupport sysapi Function $fun!"
+		usage
+		exit 1
+	;;
+esac
+
+
+#macfilter start
+setrule(){
+	grep -iq "$mac" $macfilter_conf
+	if [ $? -ne 0 ]; then
+            $UCI batch <<-EOF
+add macfilter mac
+set macfilter.@mac[-1].mac="$mac"
+set macfilter.@mac[-1].wan="$wan"
+set macfilter.@mac[-1].lan="$lan"
+set macfilter.@mac[-1].admin="$admin"
+set macfilter.@mac[-1].pridisk="$pridisk"
+commit macfilter
+EOF
+	    if [ ! "$mac" == "$($UCI get macfilter.@mac[-1].mac)" ]; then
+		dlog "ERROR: Add rule failed $mac" && return 1
+	    fi
+	else
+	    dlog "WARNING: $mac already exist in macfilter list, setrule function!"
+	    return 1 
+	fi
+	return 0
+}
+
+getrule(){
+	if [ -n "$gwmode" ]
+	then
+		if ! $UCI $PARAMETERAPPEND get macfilter.@mode[0].wan; then
+			dlog "ERROR: get  macfilter wan mode failed!"
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [ -n "$glmode" ];then
+		if ! $UCI $PARAMETERAPPEND get macfilter.@mode[0].lan;then
+			dlog "ERROR: get  macfilter lan mode failed !"
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [ -n "$gamode" ];then
+		if ! $UCI $PARAMETERAPPEND get macfilter.@mode[0].admin ;then
+			dlog "ERROR: get  macfilter admin mode failed!"
+			return 1
+		else
+			return 0
+		fi
+	fi
+	if [ -n "$gprimode" ];then
+		if ! $UCI $PARAMETERAPPEND get macfilter.@mode[0].pridisk ;then
+		    dlog "ERROR: get  macfilter pridisk mode failed!"
+		    return 1
+		else
+		    return 0
+		fi
+	fi
+	if [ -z "$mac" -a -z "$ccmac" ]
+	then
+		$UCI $PARAMETERAPPEND show macfilter |awk -F'\.' '{key[$1$2]=(key[$1$2]";"$3)}END{for(i in key){if(key[i] ~ "mac"){print key[i]}}}' |sed 's/^;//g'
+	else
+		if [ -z "$mac" -a -n "$ccmac" ]
+			then
+			echo "mac=$ccmac;wan=$wan;lan=$lan;admin=$admin;pridisk=$pridisk"
+		else
+			ucitype=`$UCI $PARAMETERAPPEND show macfilter |grep -i "$mac"|cut -d\. -f1-2`
+			if [ -n "$ucitype" ]; then
+				viewmac=`$UCI $PARAMETERAPPEND get $ucitype.mac`
+				viewwan=`$UCI $PARAMETERAPPEND get $ucitype.wan`
+				viewlan=`$UCI $PARAMETERAPPEND get $ucitype.lan`
+				viewadmin=`$UCI $PARAMETERAPPEND get $ucitype.admin`
+				viewpridisk=`$UCI $PARAMETERAPPEND get $ucitype.pridisk`
+				echo "mac=$viewmac;wan=$viewwan;lan=$viewlan;admin=$viewadmin;pridisk=$viewpridisk"
+			else
+				echo "mac=$mac;wan=$wan;lan=$lan;admin=$admin;pridisk=$pridisk"
+			fi
+		fi
+	fi
+	return 0
+}
+
+delrule(){
+	if [ -z "$mac" ]
+	then
+		dlog "ERROR: Parameter error! delrule function" && return 1
+	else
+	    for macmac in  `$UCI show macfilter |grep -i "$mac"|cut -d\. -f1-2`
+	    do
+		$UCI delete "$macmac"
+		$UCI_SAVE
+		apply_firewall del "$mac"
+	    done
+	    if [ $? -ne 0 ];then
+		dlog "ERROR: del rule failed $mac"
+		return 1
+	    fi
+	fi
+	return 0
+}
+
+updaterule(){
+	if [ -n "$mac" ]
+	then
+		if [ -n "$wan" -a -n "$lan" -a -n "$admin" -a -n "$pridisk" ];then
+			for macmac in  `$UCI show macfilter |grep -i "$mac"|cut -d\. -f1-2`;do 
+			    $UCI delete "$macmac"
+			    $UCI_SAVE
+			    apply_firewall del "$mac" 2>/dev/null
+			done
+			[ $? -ne 0 ] && dlog "ERROR: update-del rule failed $mac!" && return 1
+			$UCI batch <<EOF
+add macfilter mac
+set macfilter.@mac[-1].mac="$mac"
+set macfilter.@mac[-1].wan="$wan"
+set macfilter.@mac[-1].lan="$lan"
+set macfilter.@mac[-1].admin="$admin"
+set macfilter.@mac[-1].pridisk="$pridisk"
+commit macfilter
+EOF
+			if [ "$mac" == "$($UCI get macfilter.@mac[-1].mac)" ]; then
+			    apply_firewall set "{mac='$mac',wan='$wan',lan='$lan',admin='$admin'}"

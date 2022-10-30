@@ -1,0 +1,84 @@
+#!/bin/sh
+
+ERRORCODE=1
+
+if [ -z "$(uci get ddns.ddns 2>/dev/null)" ]
+then
+	uci set ddns.ddns=global 2>/dev/null && uci commit
+fi
+if [ -z "$(uci get ddns.ddns.status 2>/dev/null)" ]
+then
+	uci set ddns.ddns.status=off 2>/dev/null && uci commit
+fi
+
+start() {
+	. /usr/lib/ddns/dynamic_dns_functions.sh # note the leading period
+	killall dynamic_dns_updater.sh 2>/dev/null
+	uci set ddns.ddns.status=on 2>/dev/null && uci commit ddns 2>/dev/null
+	if [ $? -eq 0 ]
+	then
+		start_daemon_for_all_ddns_sections "wan"
+		sleep 1
+		ps www|grep -v grep |grep -q dynamic_dns_updater.sh
+		if [ $? -eq 0 ]
+			then
+			logger -t "ddnsctl" "INFO: ddns reload ok"
+			echo "starting ......  ok"
+			ERRORCODE=0
+		else
+			logger -t "ddnsctl" "ERROR: ddns reload failed."
+			echo "starting ...... failed.config null"
+			ERRORCODE=1
+		fi
+	else
+		ERRORCODE=0
+	fi
+	return $ERRORCODE
+}
+
+restart() {
+		stop
+		sleep 1
+		start
+		return $?
+}
+
+shutdown() {
+		stop
+		return $?
+}
+
+stop() {
+	uci set ddns.ddns.status=off 2>/dev/null && uci commit ddns 2>/dev/null
+	killall dynamic_dns_updater.sh 2>/dev/null
+	if [ $? -eq 0 ]
+		then
+		logger -t "ddnsd" "INFO: stopped."
+		echo "stoping ...... ok"
+		ERRORCODE=0
+	else
+		logger -t "ddnsd" "INFO: stop failed."
+		echo "stoping ...... failed"
+		ERRORCODE=1
+	fi
+	return $ERRORCODE
+}
+status() {
+	echo "{\"daemon\":\"$(uci get ddns.ddns.status 2>/dev/null)\","
+	for service in `awk '/^config.*service/{print$3}' /etc/config/ddns|tr "\'\"" " " `
+	do
+		echo  "\"$service\":{\"enabled\":\"$(uci get ddns.$service.enabled 2>/dev/null)\",\"domain\":\"$(uci get ddns.$service.domain 2>/dev/null)\",\"lastupdate\":\"$(uci get ddns.$service.lastupdate 2>/dev/null)\"},"
+	done
+	echo "}"
+}
+#
+
+
+case $1 in
+	"start") start;;
+	"stop") stop ;;
+	"reload") restart ;;
+	"restart") restart ;;
+	"status") status|sed -e ':a;N;$!ba;s/\n//g' -e 's#,}$#}#g' ;;
+	* ) echo "$0 [start|stop|reload|restart|status]" ;;
+esac

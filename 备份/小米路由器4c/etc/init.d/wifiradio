@@ -1,0 +1,24 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006-2011 OpenWrt.org
+
+START=18
+
+start() {
+
+        ft_mode=`cat /proc/xiaoqiang/ft_mode`
+        if [ "$ft_mode" != "1" ]
+        then
+                return 0
+        fi
+
+        wl1_radio_sw=`nvram get wl1_radio`
+        if [ "$wl1_radio_sw" = "0" ]; then
+		uci set wireless.mt7628.disabled=1
+		uci commit wireless
+        fi
+        if [ "$wl1_radio_sw" = "1" ]; then
+		uci set wireless.mt7628.disabled=0
+		uci commit wireless
+        fi
+}
+

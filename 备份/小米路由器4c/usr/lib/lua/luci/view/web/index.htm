@@ -1,0 +1,197 @@
+<%
+    local XQVersion = require "xiaoqiang.XQVersion"
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local XQWifiUtil = require "xiaoqiang.util.XQWifiUtil"
+    local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+    local XQFunction = require "xiaoqiang.common.XQFunction"
+    local xqCountryCode = require "xiaoqiang.XQCountryCode"
+    local ver = XQVersion.webVersion
+    local wifi24 = XQWifiUtil.getWifiStatus(1)
+    local wifi50 = XQWifiUtil.getWifiStatus(2)
+    local guestWifi = XQWifiUtil.getGuestWifi(1)
+    local wifi24Status = 0
+    local wifi50Status = 0
+    local wifiGuestStatus = 0
+    if wifi24 then
+        wifi24Status = tonumber(wifi24.up)
+    end
+    if wifi50 then
+        wifi50Status = tonumber(wifi50.up)
+    end
+    if guestWifi then
+        wifiGuestStatus = tonumber(guestWifi.status)
+    end
+    local remote_addr = luci.http.getenv("REMOTE_ADDR")
+    local mac = luci.sys.net.ip4mac(remote_addr) or ""
+    local MAC = string.upper(mac)
+    local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+    local router_name = XQFunction.getRouterName()
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local color = XQSysUtil.getColor()
+    local _hardware = hardware
+    if hardware == "r1cl" then
+        _hardware = "r1cm"
+    end
+    local routerSrc = "router_".._hardware.."_".. color..".png"
+    local routerSrcOn = "router_".._hardware.."_".. color.."_on.png"
+    local features = require("xiaoqiang.XQFeatures").FEATURES
+    local wifi50IsSupport = features["wifi"]["wifi50"]
+    local task = features["system"]["task"];
+    local lang = XQSysUtil.getLang()
+    local langfolder = string.upper(string.gsub(lang, "zh_", ""));
+    local ccode = xqCountryCode.getBDataCountryCode()
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/qos.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/index.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div class="mod-netmap">
+        <div class="inner clearfix">
+            <div class="devices nav-tab">
+                <div class="img"></div>
+                <p><%:终端设备%></p>
+                <div class="status status-devices" id="statusDevices"><b class="devcountonline">--</b><%:台%></div>
+            </div>
+            <div id="devline" class="line line-scaning"></div>
+            <div class="router nav-tab active">
+                <div class="img">
+                    <img class="on" src="<%=resource%>/web/img/icons/<%=routerSrcOn%>">
+                    <img class="off" src="<%=resource%>/web/img/icons/<%=routerSrc%>">
+                </div>
+                <p><%=router_name%></p>
+                <table class="status-wifi" id="statusWifi">
+                <%if wifi50IsSupport == "1" then%>
+                    <tr>
+                        <td class="l">
+                            <div class="status"><i id="ssid24status" class="ico ico-wifi-on"></i><span>2.4G: </span><b id="ssid24val">--</b></div>
+                        </td>
+                        <td class="c">|</td>
+                        <td class="r">
+                            <div class="status"><i id="ssid50status" class="ico ico-wifi-on"></i><span>5G:</span><b id="ssid50val">--</b></div>
+                        </td>
+                    </tr>
+                <%else%>
+                    <tr>
+                        <td style="border-radius:24px;" colspan="3">
+                            <div class="status"><i id="ssid24status" class="ico ico-wifi-on"></i><span>Wi-Fi:</span><b id="ssid24val">--</b></div>
+                            <div class="status" style="display:none;"><i id="ssid50status" class="ico ico-wifi-on"></i><span>5G:</span><b id="ssid50val">--</b></div>
+                        </td>
+                    </tr>
+                <%end%>
+                </table>
+            </div>
+            <div id="netline" class="line line-scaning"></div>
+            <div class="internet nav-tab active">
+                <div class="img"></div>
+                <p><%:互联网%></p>
+                <div class="status status-internet" id="statusInternet"></div>
+            </div>
+        </div>
+    </div>
+    <div id="bd">
+        <div class="mod-devicestatus nav-tab-content" style="display:none;">
+            <div id="devicesTables"></div>
+        </div>
+        <div class="mod-routerstatus nav-tab-content clearfix">
+            <div class="routerinfo">
+                <div class="hd">
+                    <h3><%:路由器信息%></h3>
+                </div>
+                <div class="bd">
+                    <table>
+                        <tr>
+                            <td id="routermodel">--</td>
+                            <td id="routerversion">--</td>
+                            <td id="routermac">--</td>
+                            <td id="routersn">--</td>
+                        </tr>
+                        <tr>
+                            <th><%:路由器型号%></th>
+                            <th><%:系统ROM版本%></th>
+                            <th><%:MAC地址%></th>
+                            <th><%:SN%></th>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div class="status-panel status-panel-first">
+                <div class="hd">
+                    <h3><%:实时网络状态%></h3>
+                    <p><%:实时下行流量%>: <b class="currentspeed">--</b> <i class="div">|</i> <%:实时上行流量%>: <b class="currentupspeed">--</b></p>
+                </div>
+                <div class="bd">
+                    <div class="canvas linechart" id="trafficChart">
+                    </div>
+                </div>
+                <div class="ft">
+                    <%:带宽%>: <span class="val"><span class="bandwidthval">--</span> M</span> <i class="div">|</i> <%:最快下载%>: <span class="val" id="maxdownloadspeed">--</span>
+                </div>
+            </div>
+            <div class="status-panel">
+                <div class="hd">
+                    <h3><%:终端流量统计%></h3>
+                    <p><%:当前终端%>: <b class="devcountonline">--</b></p>
+                </div>
+                <div class="bd">
+                    <div class="canvas">
+                        <table>
+                            <tr>
+                                <td width="200" valign="top">
+                                    <div class="chart" id="piechart" style="width:180px; height:180px;"></div>
+                                </td>
+                                <td valign="top">
+                                    <div id="piecharttable" class="charttable"></div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="ft">
+                    <%:总下载量%>: <span class="val" id="downloadcount">--</span> <i class="div">|</i> <%:总上传量%>: <span class="val" id="uploadcount">--</span> <i class="div">|</i> <%:累计终端%>: <span class="val" id="devcountall">--</span>
+                </div>
+            </div>
+            <div class="hr"></div>
+            <div class="status-panel status-panel-first">
+                <div class="hd">
+                    <h3><%:当前CPU状态%></h3>
+                    <p><%:当前CPU负载：%><b id="cpuused">--</b></p>
+                </div>
+                <div class="bd">
+                    <div class="canvas" id="cpuChart"></div>
+                </div>
+                <div class="ft">
+                    <%:CPU核心数%>:
+                    <span class="val" id="cpucore">--</span>
+                    <i class="div">|</i>
+                    <%:核心频率%>:
+                    <span class="val" id="cpuhz">--</span>
+                    <%if task == '1' then%>
+                        <i class="div">|</i>
+                        <a href="###" class="gettasklist"><%:查看详情%></a>
+                    <%end%>
+                </div>
+            </div>
+            <div class="status-panel">
+                <div class="hd">
+                    <h3><%:当前内存状态%></h3>
+                    <p><%:当前内存占用：%><b id="memused">--</b></p>
+                </div>
+                <div class="bd">
+                    <div class="canvas" id="memChart"></div>
+                </div>
+                <div class="ft">
+                    <%:内存容量%>:
+                    <span class="val" id="memtotal">--</span>
+                    <i class="div">|</i>
+                    <%:内存类型%>:
+                    <span class="val" id="memtype">--</span>
+                    <i class="div">|</i>
+                    <%:内存频率%>:
+                    <span class="val" id="memhz">--</span>
+                    <%if task == '1'

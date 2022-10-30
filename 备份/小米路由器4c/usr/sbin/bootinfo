@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# Figure out current system
+get_system_string() {
+	[ $(which nvram) ] && {
+		sysidx=$(nvram get flag_boot_recovery)
+		[ -n "$sysidx" ] && {
+			[ $sysidx -eq 0 ] && echo "Big/Little - Big"
+			[ $sysidx -eq 1 ] && echo "Big/Little - Little"
+			return
+		}
+
+		# Recovery system on R1D
+		[ "$(nvram get flag_try_sys1_failed)" = "1" ] &&
+		[ "$(nvram get flag_try_sys2_failed)" = "1" ] && {
+			echo "Dual - Little"
+			return
+		}
+
+		sysidx=$(nvram get flag_boot_rootfs)
+		[ -n "$sysidx" ] && {
+			[ $sysidx -eq 0 ] && echo "Dual - 1"
+			[ $sysidx -eq 1 ] && echo "Dual - 2"
+			return
+		}
+	}
+}
+
+xiaoqiangversion=$(cat /usr/share/xiaoqiang/xiaoqiang_version 2>/dev/null)
+test -z "$xiaoqiangversion" && xiaoqiangversion='unknow-rom-ver'
+#
+hwver=`hwversion`
+
+sys=$(get_system_string)
+sys=${sys:-"UNKNOWN"}
+
+echo ""
+#echo "U-Boot ver: $ubootver"
+echo "ROM    ver: $xiaoqiangversion"
+echo "Hardware  : $hwver"
+echo "ROM    sum: $romchecksum"
+echo "System    : $sys"
+#echo "FIRMWARE  : $bootfirmware // $expectroot"
+echo "KERNEL    : `cat /proc/cmdline`"
+if [ "$1" = 'ver' ]
+	then
+	exit 0
+fi
+echo ""
+echo "MTD  table:"
+cat /proc/mtd
+echo ""
+exit 0
+#

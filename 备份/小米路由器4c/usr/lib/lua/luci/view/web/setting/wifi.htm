@@ -1,0 +1,218 @@
+<%
+--[[
+    Info    路由器Wi-Fi设置
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local wifiUtil = require("xiaoqiang.util.XQWifiUtil")
+local LuciJson = require("luci.json")
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = luci.sys.net.ip4mac(remote_addr)
+
+local channel1 = wifiUtil.getDefaultWifiChannels(1)
+local channel2 = wifiUtil.getDefaultWifiChannels(2)
+local wifi_pddk = LuciJson.encode(channel1)
+local wifi5_pddk = LuciJson.encode(channel2)
+
+local romChannel = XQSysUtil.getChannel()
+
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local hardware = string.lower( XQSysUtil.getHardware() )
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/wifi.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-wifi">
+            <div class="hd">
+                <h3><%:Wi-Fi设置%></h3>
+            </div>
+            <div class="bd">
+                <form class="form form-horizontal" id="wifiset24" name="wifiset24"  action="<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi")%>" autocomplete="off">
+                </form>
+            </div>
+        </div>
+       <!--  <%if XQFunction.getNetModeType() ~= 2 then%>
+        <%include("web/inc/guestwifi")%>
+        <%end%> -->
+    <%if romChannel == "release" and features["system"]["i18n"] == "1" then%>
+        <div class="mod-set mod-countrycode">
+            <div class="hd">
+                <h3><%:无线网络所在区域%></h3>
+            </div>
+            <div class="bd">
+                <p><%:请选择小米路由器当前工作的国家/地区%></p>
+                <br>
+                <div class="clearfix">
+                    <div class="form-item-select">
+                        <label class="k">&nbsp;</label>
+                        <span class="v">
+                        <select name="countrycode" id="countrycode" class="beautify" >
+                        </select>
+                        </span>
+                        <em class="t"></em>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <%end%>
+    </div>
+
+    <%include("web/inc/footer")%>
+
+</div>
+<%include("web/inc/g.js")%>
+<script type="text/tmpl" id="tplWifi">
+<input type="hidden" value="{$wifiIndex}" name="wifiIndex">
+<div class="item">
+    <span class="k"><%:开关%></span>
+    <span class="v">
+    {if ($wifitype == 2)}
+        <label><input type="radio" name="on" value="1"{if ($enabled == 1 && $status == 1)} checked{/if}> <span><%:开启%></span></label>
+        <label><input type="radio" name="on" value="0"{if ($enabled == 0 || $status == 0)} checked{/if}> <span><%:关闭%></span></label>
+    {else}
+        <label><input type="radio" name="on" value="1"{if ($status == 1)} checked{/if}> <span><%:开启%></span></label>
+        <label><input type="radio" name="on" value="0"{if ($status == 0)} checked{/if}> <span><%:关闭%></span></label>
+    {/if}
+    </span>
+</div>
+<div class="form-item">
+    <label class="k"><%:名称%></label>
+    <span class="v"><input type="text" name="ssid" value="{$ssid}" class="ipt-text" autocomplete="off" datatype="ssid" maxLength="31" minLength="1" reqMsg="<%:Wi-Fi名称%>" /></span>
+    <em class="t"></em>
+</div>
+{if ($wifitype != 2)}
+<div class="form-item">
+    <label for="hidessid{$wifitype}"> <input type="checkbox" id="hidessid{$wifitype}" name="hidden" value="1" {if ($hidden == 1)}checked{/if}> <span><%:隐藏网络不被发现%></span></label>
+</div>
+{/if}
+<div class="form-item-select">
+    <label class="k"><%:加密方式%></label>
+    <span class="v">
+        <select name="encryption" class="beautify encryption" >
+            <option value="psk2"{if ($encryption == "psk2")} selected{/if}><%:强加密(WPA2个人版)%></option>
+            <option value="mixed-psk"{if ($encryption == "mixed-psk")} selected{/if}><%:混合加密(WPA/WPA2个人版)%></option>
+            <option value="none"{if ($encryption == "none")} selected{/if}><%:无加密(允许所有人连接)%></option>
+        </select>
+    </span>
+    <em class="t"></em>
+</div>
+<div class="form-item" {if($encryption == "none")} style="display:none;"{/if}>
+    <label class="k"><%:密码%></label>
+    <span class="v">
+        <input type="password" data-type="password" name="pwd" value="{$password}" class="ipt-text" autocomplete="off" datatype="wifipassword" minLength="8" maxLength="63" reqMsg="<%:Wi-Fi密码%>" />
+    </span>
+    <em class="t"></em>
+</div>
+{if ($wifitype != 2)}
+<div class="form-item-select">
+    <label class="k"><%:无线信道%></label>
+    <span class="v">
+    <select name="channel" class="beautify channel"  data-id="{$wifitype}">
+        {for(var i=0, len=$channels.length; i<len; i++)}
+            <option value="{$channels[i]['c']}" {if ($channel==$channels[i]['c'])}selected{/if}>
+            {if ($channels[i]['c']==0)}<%:自动%>
+                {if ($channelInfo["channel"] != "0")}
+                    ({$channelInfo["channel"]})
+                {/if}
+            {else}
+                {$channels[i]['c']}
+            {/if}
+            </option>
+        {/for}
+    </select>
+    </span>
+    <em class="t"></em>
+</div>
+<div class="form-item-select itemBandwidth" {if ($channel == "0")}style="display:none;"{/if}>
+    <label class="k"><%:频段带宽%></label>
+    <span class="v">
+        {if ($channel == "0")}
+        <select name="bandwidth" class="beautify" id="bandwidth" >
+            <option value="0"><%:自动%></option>
+        </select>
+        {else}
+        <select name="bandwidth" class="beautify" >
+            <option value="0" {if ("0" == $bandwidth)}selected="selected"{/if}><%:自动%></option>
+            {for(var i=0, len=$channelInfo["bandList"].length; i<len; i++)}
+                <option value="{$channelInfo["bandList"][i]}" {if ($channelInfo["bandList"][i] == $bandwidth)}selected="selected"{/if}>{$channelInfo["bandList"][i]}M</option>
+            {/for}
+        </select>
+        {/if}
+    </span>
+    <em class="t"></em>
+</div>
+<div class="form-item-select">
+    <label class="k"><%:信号强度%></label>
+    <span class="v">
+        <select name="txpwr" class="beautify txpwr" >
+            <option value="max"{if ($txpwr == "max")} selected{/if}><%:穿墙%></option>
+            <option value="mid"{if ($txpwr == "mid")} selected{/if}><%:标准%></option>
+            <option value="min"{if ($txpwr == "min")} selected{/if}><%:节能%></option>
+        </select>
+    </span>
+    <em class="t"></em>
+</div>
+{/if}
+<div class="form-contral">
+    <button type="submit" class="btn btn-primary btn-l hidden"><span><%:保存%></span></button>
+</div>
+</script>
+
+<script>
+(function(){
+    var global = {};
+    var generateMixed = function (n) {
+         var res = "";
+         var chars = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+         for(var i = 0; i < n ; i ++) {
+             var id = Math.ceil(Math.random()*35);
+             res += chars[id];
+         }
+         return res;
+    }
+    $.sub( 'wifi:init', function(evt, data){
+        global.wifi = {
+            configs: [],
+            pddk: {
+                '1': '<%=wifi_pddk%>',
+                '2': '<%=wifi5_pddk%>'
+            }
+        };
+
+        // get wifi and rander html
+        var containers = ['wifiset24', 'wifiset50', 'wifisetguest'],
+            tpl = $('#tplWifi').html();
+        $.getJSON('<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>')
+        .done(function( rsp ){
+            if ( rsp.code == 0 ) {
+                var wifiinfo = rsp.info;
+                var haswifi50 = $('#wifiset50').length > 0 ? true : false;
+                for(var i = 0, len = wifiinfo.length; i < len; i ++){
+                    var id = containers[i];
+                    var container;
+                    if( !haswifi50 && i == 1 ){
+                        container = $(document.getElementById( 'wifisetguest' ));
+                    }else{
+                        container = $(document.getElementById(id));
+                    }
+                    var wifiitem = wifiinfo[i];
+                    var password = wifiitem.password;
+                    var encryption = wifiitem.encryption;
+                    if ( encryption == 'none' ) {
+                        password = '';
+                    }
+                    var tplData = {
+                        wifitype: (!haswifi50 && i == 1) ? i+1 : i,
+                        wifiIndex: (!haswifi50 && i == 1) ? i+2 : i+1,
+                        status: wifiitem.status,
+                        ssid: StringH.encode4HtmlValue(wifiitem.ssid),
+                        password: StringH.encode4HtmlValue(pass

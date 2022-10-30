@@ -1,0 +1,61 @@
+#! /bin/sh
+
+. /lib/xq-misc/phy_switch.sh
+
+count=$(sw_lan_count)
+logger stat_points_privacy lan_port_count=$count
+
+mode=$(uci -q get xiaoqiang.common.NETMODE)
+mode=${mode:-router}
+logger stat_points_privacy net_mode="$mode"
+
+proto=$(uci -q get network.wan.proto)
+[ -n "$proto" ] && logger stat_points_privacy wan_proto="$proto"
+
+http_status_proxy=$(uci -q get http_status_stat.settings.enabled)
+logger stat_points_none http_status_proxy="$http_status_proxy"
+
+# guest wifi
+guest_wifi_2g=$(uci -q get wireless.guest_2G.disabled)
+if [ -z $guest_wifi_2g ] || [ $guest_wifi_2g = '1' ]
+then
+    logger stat_points_none 'guest_wifi_2g=0'
+else
+    logger stat_points_none 'guest_wifi_2g=1'
+fi
+
+# arp security
+if [ -f /etc/init.d/arp_security ]; then
+    /etc/init.d/arp_security log_stat
+fi
+
+# rtt stat
+if [ -f /etc/init.d/http_timeout ]; then
+    /etc/init.d/http_timeout log_stat
+fi
+
+# apk stat
+if [ -f /etc/init.d/http_apk_proxy ]; then
+    /etc/init.d/http_apk_proxy log_stat
+fi
+
+# url stat
+if [ -f /etc/init.d/http_url_proxy ]; then
+    /etc/init.d/http_url_proxy log_stat
+fi
+
+# sta rssi stat
+if [ -f /usr/sbin/sta_rssi_range.sh ]; then
+. /usr/sbin/sta_rssi_range.sh
+fi
+
+# wan bandwidth
+upband=$(uci -q get xiaoqiang.common.BANDWIDTH2)
+downband=$(uci -q get xiaoqiang.common.BANDWIDTH)
+manual=$(uci -q get xiaoqiang.common.MANUAL)
+manual=${manual:-0}
+[ -n "$downband" ] && logger stat_points_privacy wan_bandwidth="$manual|$upband|$downband"
+
+# stat r3 usb_dau
+dev=$(getdisk mnt)
+[ -n "dev" ] && logger stat_points_none usb_dau="1"

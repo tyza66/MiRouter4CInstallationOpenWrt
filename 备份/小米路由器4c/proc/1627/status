@@ -1,0 +1,37 @@
+Name:	fcgi-cgi
+State:	S (sleeping)
+Tgid:	1627
+Pid:	1627
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	32
+Groups:	
+VmPeak:	    2676 kB
+VmSize:	    2676 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     732 kB
+VmRSS:	     732 kB
+VmData:	     616 kB
+VmStk:	     136 kB
+VmExe:	      24 kB
+VmLib:	    1848 kB
+VmPTE:	      12 kB
+VmSwap:	       0 kB
+Threads:	1
+SigQ:	0/472
+SigPnd:	00000000000000000000000000000000
+ShdPnd:	00000000000000000000000000000000
+SigBlk:	00000000000000000000000000000000
+SigIgn:	00000000000000000000000000001004
+SigCgt:	00000000000000000000000000024003
+CapInh:	0000000000000000
+CapPrm:	0000001fffffffff
+CapEff:	0000001fffffffff
+CapBnd:	0000001fffffffff
+Cpus_allowed:	1
+Cpus_allowed_list:	0
+voluntary_ctxt_switches:	650
+nonvoluntary_ctxt_switches:	169

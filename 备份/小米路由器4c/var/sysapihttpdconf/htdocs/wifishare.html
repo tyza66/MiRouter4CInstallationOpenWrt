@@ -1,0 +1,44 @@
+
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta charset="utf-8">
+    <title>访客Wi-Fi</title>
+	<link rel="stylesheet" type="text/css" href="//s.miwifi.com/sns_wifi_share_v0510/css/iconfont.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/sns_wifi_share_v0510/css/style.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/dist/ads_flow_v3/css/index.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/dist/ads_flow_v3/css/style.css"/>
+    <script type="text/javascript">
+        // SNS协议参数配置
+        var CONF = {
+            appid: 'wxc3de7525dd792beb',
+            devicetype: 'gh_deffce86b61f',
+            deviceid: '',
+            token: '',
+            headurl: '',
+            clientinfo: '',
+            ssid: '',
+            disable_ad: true
+        };
+
+        var SNSenable = [];
+        //var SNSenable = ['wechat', 'direct_request', 'wifirent_wechat_pay'];
+    </script>
+    <script>
+        function ajax(params) {
+            params = params || {};
+            params.data = params.data || {};
+            var json = params.jsonp ? jsonp(params) : json(params);
+            // jsonp请求
+            function jsonp(params) {
+                //创建script标签并加入到页面中
+                var callbackName = params.jsonp;
+                var head = document.getElementsByTagName('head')[0];
+                // 设置传递给后台的回调参数名
+                params.data['callback'] = callbackName;
+                var data = formatParams(params.data);
+                var script = document.createElement('script');
+                head.appendChild(script);
+                //创建jsonp回调函数
+                window[callbackName] = function (json) 

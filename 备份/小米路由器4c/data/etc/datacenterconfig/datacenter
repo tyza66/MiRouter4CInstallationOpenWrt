@@ -1,0 +1,3 @@
+needUninstallEbitPlugin = "false";
+needUninstallAdblockPlugin = "false";
+needUninstallLtPlugin = "false";

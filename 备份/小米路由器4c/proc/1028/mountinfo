@@ -1,0 +1,16 @@
+9 1 31:8 / / rw,relatime - squashfs /dev/root ro
+10 9 0:3 / /proc rw,relatime - proc proc rw
+11 9 0:9 / /sys rw,relatime - sysfs sysfs rw
+12 9 0:10 / /tmp rw,nosuid,nodev,relatime - tmpfs tmpfs rw
+13 9 0:11 / /dev rw,relatime - tmpfs tmpfs rw,size=512k,mode=755
+14 13 0:8 / /dev/pts rw,relatime - devpts devpts rw,mode=600,ptmxmode=000
+15 9 31:9 / /userdisk rw,relatime - jffs2 /dev/mtdblock9 rw
+16 9 31:6 / /data rw,relatime - jffs2 /dev/mtdblock6 rw
+20 9 31:6 /etc /etc rw,relatime - jffs2 /dev/mtdblock6 rw
+21 13 0:13 / /dev/cgroup/mem rw,relatime - cgroup none rw,memory
+22 13 0:14 / /dev/cgroup/net_cls rw,relatime - cgroup none rw,net_cls
+23 13 0:15 / /dev/cgroup/cpu rw,relatime - cgroup none rw,cpu
+19 9 31:8 / /mnt rw,relatime - squashfs /dev/root ro
+24 19 31:6 / /mnt rw,noatime - jffs2 /dev/mtdblock6 rw
+17 15 31:8 /lib /userdisk/appdata/chroot_file/lib rw,relatime - squashfs /dev/root ro
+18 15 31:8 /usr/lib /userdisk/appdata/chroot_file/usr/lib rw,relatime - squashfs /dev/root ro

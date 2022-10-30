@@ -1,0 +1,263 @@
+#!/bin/sh
+#
+#execute by /lib/firewall.sysapi.loader when system firewall start/reload
+#
+#TODO: hack fw3 to support create custom chain and target to chain
+#
+#TODO: hack fw3 to using -m u32
+#
+#TODO: change all rules in uci and fw3 reload
+#
+#TODO: make macfilter rules stable
+#
+. /lib/lib.scripthelper.sh
+#
+. /lib/functions.sh
+
+export ctlop="$1"
+export addop="$2"
+export exitcode=0
+
+if [ -z "$ctlop" ]
+	then
+	elog "WARNING: Usage: $0 <index> [add args]"
+	exit 1
+fi
+
+errcount(){
+	local errcode="$1"
+	test -z "$errcode" && return 0
+	test "$errcode" -ne 0 && let exitcode=$exitcode+1
+	return 0
+}
+
+proclock(){
+	local needlan
+	needlan="$1"
+	LANIPMASK="$(getlanipmask)"
+	if [ "$needlan" = 'needlan' -a -z "$LANIPMASK" ]
+		then
+		dlog "INFO: bypass for lan ip/netmask no exist."
+		exit 0
+	fi
+	#
+	dlog "INFO: LANIPMASK: $LANIPMASK"
+	#
+	checkproclock 30 replaceproc
+	#check lock, return 0 for no locked, 1 for locked
+	if [ $? -ne 0 ]
+		then
+		elog "ERROR: executing $ALLARGS exited, waiting for proc lock failed after 30 seconds, current locked pid: $(getlockedprocpid)"
+		exit 1
+	fi
+	setproclock
+}
+
+#prepare_doit(){
+#	#delegate_postrouting of mangle for landownloadtraffic
+#	iptnewchain "-N delegate_postrouting -t mangle"
+#	errcount $?
+#	iptables -L POSTROUTING -t mangle --line-numbers 2>/dev/null | grep '1 ' | grep -q 'delegate_postrouting'
+#	if [ $? -eq 0 ]
+#		then
+#		return 0
+#	fi
+#	iptremoverule "-D POSTROUTING -t mangle -j delegate_postrouting"
+#	iptexec "iptables -I POSTROUTING -t mangle -j delegate_postrouting"
+#	errcount $?
+#}
+
+
+webinitrdr_disable(){
+	local force="$1"
+	local initMark="$(uci get xiaoqiang.common.INITTED 2>/dev/null)"
+	if [ "$initMark" != 'YES' -o "$force" = 'force' ]
+		then
+		touch /etc/config/xiaoqiang 2>/dev/null
+		errcount $?
+		uci set xiaoqiang.common='core' && uci set xiaoqiang.common.INITTED='YES' && uci commit xiaoqiang
+		errcount $?
+		if [ "$initMark" = 'YES' -a "$force" = 'force' ]
+			then
+			dlog "INFO: force remove redirect rules and restart services."
+		else
+			dlog "INFO: remove redirect rules and restart services."
+		fi
+		iptremoverule "-D $HTTPRDR_RULE"
+		iptremoverule "-D $DNSRDR_RULE"
+		test -x /etc/init.d/dnsmasq && dlog "INFO: restart dnsmasq for webinitrdr." && /etc/init.d/dnsmasq restart &
+	else
+		dlog "INFO: disable skipped for already initialed."
+	fi
+	sync 2>/dev/null
+	return 0
+}
+
+webinitrdr_doit(){
+		#
+		#if [ "$(nvram get model 2>/dev/null)" = "R1CM" ];then
+		#	dlog "INFO: R1CM platform ,disable webinitrdr."
+		#	return 0
+		#fi
+		NGINXWEBINITPORT=8098
+		DNSWEBINITPORT=53
+		#
+		HTTPRDR_RULE="prerouting_lan_rule -t nat -p tcp --dport 80 -m comment --comment HTTPWEBINITRDR -j REDIRECT --to-ports $NGINXWEBINITPORT"
+		DNSRDR_RULE="prerouting_lan_rule -t nat -p udp --dport 53 -m comment --comment DNSWEBINITRDR -j REDIRECT --to-ports $DNSWEBINITPORT"
+		#
+		test -z "$addop" && addop='on'
+		if [ "$addop" = 'off' -o "$addop" = 'stop' ]
+			then
+			#
+			proclock
+			#
+			webinitrdr_disable force
+			dlog "INFO: webinitrdr manual disabled."
+			return 0
+		fi
+		#
+		proclock needlan
+		DEVINITMARK="$(uci get xiaoqiang.common.INITTED 2>/dev/null)"
+		if [ "$DEVINITMARK" = 'YES' ]
+		then
+			dlog "INFO: webinitrdr bypass for device already initialed."
+			webinitrdr_disable
+			return 0
+		fi
+
+		local is_webinit=$(uci -q get misc.firewall.webinit)
+		is_webinit="${is_webinit:-1}"
+		# boot_status no ready
+		if [ $is_webinit == '0' ]; then
+		    #NGINXWEBINITPORT=80
+		    webinitrdr_disable
+		    if [ "$DEVINITMARK" != 'YES' ]
+		    then
+			dlog "INFO: webinitrdr disabled for squash system."
+			return $?
+		    else
+			dlog "INFO: device already initialed for squash system."
+			return 0
+		    fi
+		fi
+		#
+		#rdr on
+		#
+		if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ] ;then
+			dlog "INFO: skip webinitrdr for interface ${INTERFACE}."
+			return 0
+		fi
+		dlog "INFO: try to insert redirect rules and restart services."
+		iptables -L prerouting_lan_rule -t nat 2>/dev/null | grep -qi 'HTTPWEBINITRDR'
+		webrdrok=$?
+		iptables -L prerouting_lan_rule -t nat 2>/dev/null| grep -qi 'DNSWEBINITRDR'
+		dnsrdrok=$?
+		if [ $webrdrok -ne 0 -o $dnsrdrok -ne 0 ]
+			then
+			test $webrdrok -ne 0 && iptexec "iptables -A $HTTPRDR_RULE"
+			test $dnsrdrok -ne 0 && iptexec "iptables -A $DNSRDR_RULE"
+			iptables -L prerouting_lan_rule -t nat 2>/dev/null| grep -qi 'HTTPWEBINITRDR'
+			webrdrok=$?
+			if [ $webrdrok -ne 0 ]
+				then
+				dlog "WARNING: preload catch all web init redirect on failed, miss HTTPWEBINITRDR rules."
+			fi
+			iptables -L prerouting_lan_rule -t nat 2>/dev/null| grep -qi 'DNSWEBINITRDR'
+			dnsrdrok=$?
+			if [ $dnsrdrok -ne 0 ]
+				then
+				dlog "WARNING: preload catch all dns init redirect on failed, miss DNSWEBINITRDR rules."
+			fi
+			if [ $webrdrok -eq 0 -a $dnsrdrok -eq 0 ]
+				then
+				dlog "INFO: web init redirect switch to on."
+				test -x /usr/sbin/preload.monitor && dlog "INFO: restart preload.monitor for webinitrdr." && /usr/sbin/preload.monitor restart &
+				test -x /etc/init.d/dnsmasq && dlog "INFO: restart dnsmasq for webinitrdr." && /etc/init.d/dnsmasq restart &
+			else
+				dlog "ERROR: web init redirect switch to on failed."
+				errcount $?
+			fi
+		else
+			dlog "INFO: redirect rules already exist, nothing to do."
+		fi
+		return $errcount
+}
+
+dnsmiwifi_doit(){
+		#
+		proclock needlan
+		#
+		#U32 match dns query www.miwifi.com/miwifi.com
+		#
+		#www.miwifi.com
+		if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ] ;then
+			dlog "INFO: skip dnsmiwifi for interface ${INTERFACE}."
+			return 0
+		fi
+		iptremoverule -D prerouting_lan_rule -t nat -p udp --dport 53 -m u32 --u32 "0>>22&0x3C@20&0xFFDFDFDF=0x03575757&&0>>22&0x3C@24&0xFFDFDFDF=0x064d4957&&0>>22&0x3C@28&0xDFDFDFFF=0x49464903&&0>>22&0x3C@32&0xDFDFDF00=0x434f4d00" -j REDIRECT --to-port 53
+		iptables -A prerouting_lan_rule -t nat -p udp --dport 53 -m u32 --u32 "0>>22&0x3C@20&0xFFDFDFDF=0x03575757&&0>>22&0x3C@24&0xFFDFDFDF=0x064d4957&&0>>22&0x3C@28&0xDFDFDFFF=0x49464903&&0>>22&0x3C@32&0xDFDFDF00=0x434f4d00" -j REDIRECT --to-port 53
+		errcount $?
+		#miwifi.com
+		iptremoverule -D prerouting_lan_rule -t nat -p udp --dport 53 -m u32 --u32 "0>>22&0x3C@20&0xFFDFDFDF=0x064d4957&&0>>22&0x3C@24&0xDFDFDFFF=0x49464903&&0>>22&0x3C@28&0xDFDFDF00=0x434f4d00" -j REDIRECT --to-port 53
+		iptables -A prerouting_lan_rule -t nat -p udp --dport 53 -m u32 --u32 "0>>22&0x3C@20&0xFFDFDFDF=0x064d4957&&0>>22&0x3C@24&0xDFDFDFFF=0x49464903&&0>>22&0x3C@28&0xDFDFDF00=0x434f4d00" -j REDIRECT --to-port 53
+		errcount $?
+		#
+		return 0
+}
+
+iptaccount_doit(){
+	#
+	proclock needlan
+	#
+	if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ] ;then
+		dlog "INFO: skip iptacount for interface ${INTERFACE}."
+		return 0
+	fi
+	iptables -L POSTROUTING -t mangle --line-numbers 2>/dev/null | grep -q 'landownloadtraffic'
+	test $? -eq 0 && iptremoverule "-D POSTROUTING -t mangle -o br-lan -j landownloadtraffic"
+	iptables -L fwmark -t mangle --line-numbers 2>/dev/null | grep -q 'lanuploadtraffic'
+	test $? -eq 0 && iptremoverule "-D fwmark -t mangle -i br-lan -j lanuploadtraffic"
+	iptremoverule "-F landownloadtraffic -t mangle"
+	iptremoverule "-F lanuploadtraffic -t mangle"
+	iptremoverule "-X landownloadtraffic -t mangle"
+	iptremoverule "-X lanuploadtraffic -t mangle"
+	if [ "$addop" = 'stop' -o "$addop" = 'stop' ]
+		then
+		dlog "INFO: IP LAN TRAFFIC ACCOUNT rules removed."
+		return 0
+	fi
+	dlog "INFO: setup IP LAN TRAFFIC ACCOUNT rules for $LANIPMASK ..."
+	#-A POSTROUTING -o br-lan -m comment --comment "LANIPTRAFFICACCOUNT" -j landownloadtraffic
+	iptnewchain "-N landownloadtraffic -t mangle"
+	errcount $?
+	iptables -L POSTROUTING -t mangle --line-numbers 2>/dev/null | grep '1 ' | grep -q 'landownloadtraffic'
+	if [ $? -ne 0 ]
+		then
+		iptremoverule "-D POSTROUTING -t mangle -o br-lan -j landownloadtraffic"
+		iptexec "iptables -I POSTROUTING -t mangle -o br-lan -j landownloadtraffic"
+		errcount $?
+	fi
+	#-A fwmark -i br-lan -m comment --comment "LANIPTRAFFICACCOUNT" -j lanuploadtraffic
+	iptnewchain "-N lanuploadtraffic -t mangle"
+	errcount $?
+	iptables -L fwmark -t mangle --line-numbers 2>/dev/null | grep '1 ' | grep -q 'lanuploadtraffic'
+	if [ $? -ne 0 ]
+		then
+		iptremoverule "-D fwmark -t mangle -i br-lan -j lanuploadtraffic"
+		iptexec "iptables -I fwmark -t mangle -i br-lan -j lanuploadtraffic"
+		errcount $?
+	fi
+	#clean up rules in lanuploadtraffic, landownloadtraffic and re-create all
+	iptremoverule "-F landownloadtraffic -t mangle"
+	iptremoverule "-F lanuploadtraffic -t mangle"
+
+	iptexec "iptables -A landownloadtraffic -t mangle -m comment --comment LANIPTRAFFICACCOUNT -j ACCOUNT --addr $LANIPMASK --tname landownloadtraffic"
+	iptexec "iptables -A lanuploadtraffic -t mangle -m comment --comment LANIPTRAFFICACCOUNT -j ACCOUNT --addr $LANIPMASK --tname lanuploadtraffic"
+	#
+	chk=$(iptables -L landownloadtraffic -t mangle -n -v | grep -c 'LANIPTRAFFICACCOUNT')
+	if [ $chk -lt 1 ]
+		then
+		dlog "ERROR: landownloadtraffic rules setup failed."
+		errcount 1
+	fi
+	chk=$(iptables -L lanuploadtraffic -t mangle -n -v | grep -

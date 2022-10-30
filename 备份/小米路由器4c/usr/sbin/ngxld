@@ -1,0 +1,228 @@
+#!/bin/sh
+#set -x
+#initial env for nginx server
+#
+#defined in package.sysapihttpd.Makefile
+NGINX_BIN=/usr/sbin/sysapihttpd
+ROMCONFDIR='/etc/sysapihttpd'
+NGINXCACHEDIR='/userdisk/sysapihttpd'
+#
+NGINXTMPDIR='/tmp/sysapihttpd/'
+#
+RUNCONFDIR='/tmp/sysapihttpdconf'
+PID_FILE='/var/run/sysapihttpd.pid'
+UPLOAD_DIR='/tmp/uploadfiles/'
+
+export NGINXDAEMONOFF='no'
+#log level: debug | info | notice | warn | error | crit
+export NGINXERRLOGLEVEL='notice'
+#
+. /lib/lib.scripthelper.sh
+RUNCONFDIR=$(strippath $RUNCONFDIR)
+NGINXRUNCONF=$(strippath ${RUNCONFDIR}/sysapihttpd.conf)
+
+#sed error_log to stderr if evn NGINXDAEMONOFF exist
+#sed daemon to off if evn NGINXDAEMONOFF exist
+error_log_init() {
+	#return 0 for ok
+	if [ "$NGINXDAEMONOFF" != 'yes' ]
+		then
+		return 0
+	fi
+	#
+	grep -iq '^daemon off' $NGINXRUNCONF
+	if [ $? -ne 0 ]
+		then
+		sed -i -e 's/^daemon on/daemon off/g' $NGINXRUNCONF
+		if [ $? -eq 0 ]
+			then
+			echo "INFO: set daemon off ok."
+		else
+			echo "ERROR: set daemon off failed, sysapihttpd no started."
+			return 1
+		fi
+	fi
+	if [ -z "$NGINXERRLOGLEVEL" ]
+		then
+		NGINXERRLOGLEVEL='notice'
+	fi
+	case "$NGINXERRLOGLEVEL" in
+		notice|warn|error|crit)
+			echo "INFO: error log level: $NGINXERRLOGLEVEL"
+			;;
+		debug|info)
+			echo "WARNING: error log level is for debug: $NGINXERRLOGLEVEL"
+			;;
+		*)
+			echo "WARNING: unknow error log level: $NGINXERRLOGLEVEL"
+			NGINXERRLOGLEVEL='notice'
+			echo "INFO: error log level: $NGINXERRLOGLEVEL"
+			;;
+	esac
+	#
+	grep -iq "^error_log stderr $NGINXERRLOGLEVEL" $NGINXRUNCONF
+	if [ $? -ne 0 ]
+		then
+		#
+		sed -i -e "s/^error_log.*/error_log stderr $NGINXERRLOGLEVEL;/g" $NGINXRUNCONF
+		if [ $? -eq 0 ]
+			then
+			echo "INFO: set errorlog to stderr ok."
+		else
+			echo "ERROR: set errorlog to stderr failed, sysapihttpd no started."
+			return 1
+		fi
+	fi
+	return 0
+}
+#
+clean_mount(){
+	local mntdir
+	mntdir="$1"
+	test -z "$mntdir" && return 1
+	for aaa in 1 2 3 4 5 6 7 8 9 0
+	do
+		mount | grep -q " $mntdir "
+		test $? -ne 0 && break
+		umount -f -r "$mntdir"
+		sleep 1
+	done
+	mount | grep -q " $mntdir "
+	if [ $? -eq 0 ]
+		then
+		return 1
+	else
+		return 0
+	fi
+}
+
+init_web_root(){
+	local rootdir rootinfo exitcode
+	exitcode=0
+	rootdir="$1"
+	rootinfo="$2"
+	test -z "$rootdir" && return 1
+	test -z "$rootinfo" && rootinfo="static"
+	mkdir -p ${rootdir}/ || exitcode=1
+	test -f ${rootdir}/favicon.ico || touch ${rootdir}/favicon.ico || exitcode=1
+	test -f ${rootdir}/index.html || echo "<h1>sysapihttpd ${rootinfo} server</h1>" > ${rootdir}/index.html || exitcode=1
+	test -f ${rootdir}/50x.html || echo "<h1>sysapihttpd ${rootinfo} server, file no found or internal error</h1>" > ${rootdir}/50x.html || exitcode=1
+	if [ $exitcode -ne 0 ]
+		then
+		echo "WARNING: web root $rootinfo($rootdir) initial failed."
+	fi
+	return $exitcode
+}
+
+init_nginx_dir(){
+	local datadir exitcode
+	datadir="$1"
+	test -z "$datadir" && return 1
+	exitcode=0
+	mkdir -p ${datadir} 2>&1 || exitcode=1
+	mkdir -p ${datadir}/temp || exitcode=1
+	mkdir -p ${datadir}/cache || exitcode=1
+	mkdir -p ${datadir}/log || exitcode=1
+	mkdir -p ${datadir}/body || exitcode=1
+	mkdir -p ${datadir}/proxy || exitcode=1
+	mkdir -p ${datadir}/fastcgi || exitcode=1
+	mkdir -p ${datadir}/run || exitcode=1
+	mkdir -p ${datadir}/lock || exitcode=1
+	if [ $exitcode -ne 0 ]
+		then
+		echo "WARNING: data root $datadir initial failed."
+	fi
+	return $exitcode
+}
+
+env_init(){
+	local exitcode
+	NGINXTMPDIR=$(slaprtrim $NGINXTMPDIR)
+	NGINXCACHEDIR=$(slaprtrim $NGINXCACHEDIR)
+
+	mkdir -p $NGINXCACHEDIR >/dev/null 2>&1
+
+	elog "INFO: main conf: $NGINXRUNCONF"
+	if ! mkdir -p $RUNCONFDIR; then
+	    elog "ERROR: mkdir -p $RUNCONFDIR failed: $(mkdir -p $RUNCONFDIR 2>&1)"
+	    exit 1
+	fi
+	#conf sync
+	rm -rf ${RUNCONFDIR} && mkdir -p ${RUNCONFDIR} && cp -a ${ROMCONFDIR}/* ${RUNCONFDIR}/
+	if [ $? -ne 0 ]; then
+	    elog "ERROR: sync configure failed: ${ROMCONFDIR} => ${RUNCONFDIR}"
+	    return 1
+	fi
+	init_nginx_dir "$NGINXTMPDIR" || return 1
+	#echo "DEBUG: NGINX_CACHE=$NGINX_CACHE, NGINX_AUTOCACHE=$NGINX_AUTOCACHE"
+	cachedirname=$(dirname $NGINXCACHEDIR)
+	cachedev=$(mount | grep " on $NGINXCACHEDIR " | tail -n 1 | awk '{print $1}')
+	test -z "$cachedev" && cachedev=$(mount | grep " on $cachedirname " | tail -n 1 | awk '{print $1}')
+	if [ -z "$cachedev" ]
+	then
+		echo "INFO: no standalone file system for $NGINXCACHEDIR, using ram fs."
+		if ! mount --bind ${NGINXTMPDIR}/ ${NGINXCACHEDIR}/; then
+		    echo "ERROR: mount --bind ${NGINXTMPDIR}/ ${NGINXCACHEDIR}/ failed."
+		    return 1
+		fi
+	fi
+	#
+	init_nginx_dir "$NGINXCACHEDIR"
+	#
+	exitcode=0
+	#initial in loop
+	rootlist='preload inforoot luaroot'
+	for oneroot in $rootlist
+	do
+	    [ -f "${NGINXCACHEDIR}/$oneroot" ] || init_web_root "${NGINXCACHEDIR}/$oneroot" "$oneroot" || exitcode=$?
+	done
+	if [ $exitcode -ne 0 ]
+		then
+		echo "ERROR: initial web root directory failed."
+		return 1
+	fi
+
+	# recreate upload dir
+	rm -rf /tmp/uploadfiles/ && mkdir -p /tmp/uploadfiles/ && chmod 777 /tmp/uploadfiles/
+	chmod -R 777 /userdisk/sysapihttpd
+	return $exitcode
+}
+
+gen_config() {
+    local rrd=$(matool --method rr_data)
+    local did=$(matool --method deviceID)
+    local api_server=$(uci get /etc/config/miwifi.server.API)
+    local rr_path='/tmp/rr'
+    local de_path="/tmp/de_zone_data"
+    local nginx_ssl_crt="/etc/sysapihttpd/nginx-ssl.crt"
+    local nginx_ssl_key="/etc/sysapihttpd/nginx-ssl.key"
+    [ -d "$rr_path" ] || mkdir -p "$rr_path"
+    local rr_body="$rr_path/xqsystmp"
+    sed -i -e "s/\"RR_D_STUB\"/\"$rrd\"/g
+     s/\"DEV_ID_STUB\"/\"$did\"/g
+     s/API_SERVER/$api_server/g
+     s#\"DE_PATH_STUB\"#\"$de_path\"#g
+     s#\"RR_PATH_STUB\"#\"$rr_body\"#g
+     s#NGINX_SSL_CRT#$nginx_ssl_crt#g
+     s#NGINX_SSL_KEY#$nginx_ssl_key#g
+     " $NGINXRUNCONF
+}
+
+if ! env_init; then
+    elog "ERROR: env_init failed."
+    exit 1
+fi
+
+if ! error_log_init; then
+    elog "ERROR: error_log_init failed."
+    exit 1
+fi
+# replace variable value
+if ! gen_config; then
+    elog "ERROR: gen config error."
+    exit 1
+fi
+if ! $NGINX_BIN -c ${NGINXRUNCONF} -t &> /tmp/nginx_check.log; then
+    elog "ERROR: config check error."
+    exit 1
+fi

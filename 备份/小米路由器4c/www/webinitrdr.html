@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]><html class="ie6 oldie" lang="zh"><![endif]-->
+<!--[if IE 7]><html class="ie7 oldie" lang="zh"><![endif]-->
+<!--[if IE 8]><html class="ie8 oldie" lang="zh"><![endif]-->
+<!--[if gt IE 8]><!--> <html lang="zh"> <!--<![endif]-->
+<head>
+    <meta http-equiv="X-UA-Compatible" content="edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="renderer" content="webkit">
+    <title>MIWIFI</title>
+    <meta http-equiv="refresh" content="5; url=http://miwifi.com">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="/xiaoqiang/web/css/bc.css?v=0.0.3" rel="stylesheet">
+    <style type="text/css">
+        html {
+            background: none;
+        }
+        #doc {
+            margin: 0 auto;
+            max-width: 1200px;
+        }
+        #hd {
+            padding: 30px 0 0 20px;
+        }
+        #bd {
+            text-align: center;
+            padding-top: 100px;
+        }
+        .text{
+            color: #666;
+        }
+        .welcome {
+            font-size: 24px;
+            padding: 15px 0;
+            border-bottom: 1px dotted #D9D9D9;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .tip {
+            font-weight: 700;
+            margin: 10px 0 80px;
+        }
+        .progress {
+            margin: 20px auto 50px;
+            max-width: 320px;
+            width: 80%;
+            height: 8px;
+            overflow: hidden;
+            background: url(/xiaoqiang/web/img/progress.gif) repeat-x 0 0;
+        }
+        #ft{
+            color: #ccc;
+            text-align: center;l
+        }
+        @media screen and (max-width: 480px) {
+            #hd {
+                padding-top: 10px;
+            }
+            #bd {
+                text-align: center;
+                padding-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="doc">
+    <!-- <div id="hd">
+        <img src="http://miwifi.com/xiaoqiang/web/img/agreement_logo.png">
+    </div> -->
+    <div id="bd" style="margin-top:40px;">
+    
+        <img src="http://miwifi.com/xiaoqiang/web/img/agreement_logo.png">
+        <div class="text" id="text">
+            <!-- <p class="welcome"></p> -->
+            <!-- <p class="tip">你连接的路由器还未初始化</p>
+            <p>请稍候，会自动为你跳转到引导页面...</p>
+            <p>如果未能跳转，请直接访问<a class="a1" href="http://miwifi.com">miwifi.com</a></p> -->
+        </div>
+        <div class="progress"></div>
+    </div>
+    <div id="ft">
+        <p>Copyright &copy; 2015 MIWIFI</p>
+    </div>
+</div>
+<script type="text/template" id="tplwebinit">
+    <p class="welcome">{$s4}</p>
+    <p class="tip">{$s1}</p>
+    <p>{$s2}</p>
+    <p>{$s3}  <a href="http://miwifi.com">miwifi.com</a></p>
+</script>
+<script src="/js/jquery-1.8.3.js"></script>
+<script src="/js/qwrap.js"></script>
+<script>
+$(function(){
+    $.getJSON('/cgi-bin/luci/web/webinitrdr', function( rsp ){
+        if ( rsp.code == 0) {
+            $('#text').html( $('#tplwebinit').html().tmpl(rsp.data) );
+        }
+    });
+});
+</script>
+</body>
+</html>

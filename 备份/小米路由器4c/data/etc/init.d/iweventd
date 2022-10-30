@@ -1,0 +1,51 @@
+#!/bin/sh /etc/rc.common
+
+START=60
+#STOP=99
+SERVICE_DAEMONIZE=1
+SERVICE_USE_PID=1
+SERVICE_WRITE_PID=1
+SERVICE_MATCH_EXEC=""
+SERVICE_DEBUG=""
+SERVICE_QUIET="1"
+
+
+EXTRA_COMMANDS=" status is_running "
+EXECMD="/usr/sbin/iweventd.sh"
+
+start() {
+
+    is_running
+    if [ $? -eq 1 ]; then
+        echo 'iweventd already running.'
+        return 0    #error
+    fi
+    [ -x ${EXECMD} ] && service_start ${EXECMD}
+    return $?
+}
+
+stop() {
+    [ -x ${EXECMD} ] && service_stop ${EXECMD}
+    return $?
+}
+
+
+#running: 0, dead, 1, alive
+is_running(){
+    [ -x ${EXECMD} ] && service_check ${EXECMD}
+    if [ $? -eq 0 ]; then
+        return 1       # is running
+    else
+        return 0      # error
+    fi
+}
+
+#status: 0, in-actived, 1, actived
+status(){
+    [ -x ${EXECMD} ] && service_check ${EXECMD}
+    if [ $? -eq 0 ]; then
+        echo "iweventd is running."
+    else
+        echo "iweventd is stop."
+    fi
+}

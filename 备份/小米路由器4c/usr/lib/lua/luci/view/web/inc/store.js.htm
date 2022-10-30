@@ -1,0 +1,40 @@
+<script>
+//js for r1c store
+(function(){
+    var url = {
+        //磁盘基本信息,分类信息
+        'datacenter': '<%=luci.dispatcher.build_url("api", "xqdatacenter","request")%>'
+    };
+    // 磁盘空间信息
+    var getDiskData = function(){
+        $.ajax({
+             type: "post",
+             url: url.datacenter,
+             data: {payload:'{"api":26, "needDetail": true}'},
+             datatype: 'json',
+             success: function( rsp ){
+                rsp = $.parseJSON(rsp);
+                if (rsp.code === 0) {
+                    // 不为0表示有外接磁盘
+                    if (rsp.capacity != 0) {
+                        var $el2 = $('.nav-disk-2');
+                        $el2.find('.disk-used').text(byteFormat(parseInt( (rsp.capacity - rsp.available ),10)));
+                        $el2.find('.disk-all').text(byteFormat(parseInt(rsp.capacity, 10)));
+                        $el2.find('.bar-area .b1').css({
+                            width: ( rsp.capacity - rsp.available ) / rsp.capacity * 100 + '%'
+                        });
+
+                        $('.nav-disk-1').hide();
+                        $el2.show().addClass('active');
+                        $('#extDiskUsed').removeClass('isIndexingimg');
+                        $('#extDiskIndexinghdLi').hide();
+                    }
+                }
+             }
+        });
+    };
+	$(function(){
+        getDiskData();
+    });
+})();
+</script>

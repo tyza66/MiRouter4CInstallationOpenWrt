@@ -1,0 +1,180 @@
+<%
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local XQTopology = require("xiaoqiang.module.XQTopology")
+    local homeUrl = '/'
+    if XQSysUtil.getInitInfo() then
+        homeUrl = luci.dispatcher.build_url("web", "home")
+    end
+    local XQFunction = require("xiaoqiang.common.XQFunction")
+    local router_name = XQFunction.getRouterName()
+    -- ap model
+    local netMode = 0
+    local mode = XQFunction.getNetMode()
+    if mode == "lanapmode" then
+        netMode = 2
+    elseif mode == "wifiapmode" then
+        netMode = 1
+    end
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local features = require("xiaoqiang.XQFeatures").FEATURES
+    local usbIsSupport = features["hardware"]["usb"]
+    local showTopoLink = 0
+    local topo = XQTopology.topologicalGraph()
+    local leafs = topo["leafs"]
+    if leafs and #leafs > 0 then
+        showTopoLink = 1
+    end
+
+%>
+<noscript>
+<div class="noscript"><%:你的浏览器禁止了Javascript功能，会造成无法使用系统进行路由器管理，请开启。%></div>
+</noscript>
+<script>
+var GLOBALHEADER = true;
+</script>
+<div id="hd">
+    <div class="inner">
+        <div class="mod-head clearfix">
+            <h1 id="logo"><a href="<%=homeUrl%>"><img src="<%=resource%>/web/img/logo.png?v=<%=ver%>" alt="<%:小米路由器%>"></a></h1>
+            <div id="nav">
+                <%if netMode == 0 then%>
+                <ul>
+                    <li <%if string.find(REQUEST_URI, "/home") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "home")%>"><%:路由状态%></a></li>
+                    <%if usbIsSupport == '1' then%>
+                    <li <%if string.find(REQUEST_URI, "/store") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "store")%>"><%:存储状态%></a></li>
+                    <%end%>
+                    <li <%if string.find(REQUEST_URI, "/setting") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>"><%:常用设置%></a></li>
+                    <li <%if string.find(REQUEST_URI, "/prosetting") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","prosetting","qos")%>"><%:高级设置%></a></li>
+                </ul>
+                <%else%>
+                <ul>
+                    <li <%if string.find(REQUEST_URI, "/home") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "home")%>"><%:中继状态%></a></li>
+                    <li <%if string.find(REQUEST_URI, "/apsetting") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>"><%:中继设置%></a></li>
+                </ul>
+                <%end%>
+            </div>
+            <div id="userbar">
+                <%if (showTopoLink==1) then%>
+                    <span class="goto-topo"><a href="http://miwifi.com/" target="_blank"><%:查看完整网络%></a></span>
+                <%end%>
+                <span id="sysmenu" class="name s-dropdown"><%=router_name%></span>
+                <span id="sysnotice" class="ico-notice"></span>
+            </div>
+        </div>
+
+        <%if string.find(REQUEST_URI, "/setting") then%>
+        <div class="mod-set-nav">
+            <ul class="clearfix li-5">
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/wan") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "wan")%>">
+                        <i class="ico ico-2"></i>
+                        <span><%:上网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/safe") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "safe")%>">
+                        <i class="ico ico-3"></i>
+                        <span><%:安全中心%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/lannetset") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "lannetset")%>">
+                        <i class="ico ico-4"></i>
+                        <span><%:局域网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统状态%></span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <%end%>
+
+        <%if string.find(REQUEST_URI, "/apsetting") then%>
+        <div class="mod-set-nav mod-ap-set-nav">
+            <%if hardware ~= "r4cm" then%>
+            <ul class="clearfix li-5">
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/wan") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wan")%>">
+                        <i class="ico ico-2"></i>
+                        <span><%:上网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/safe") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "safe")%>">
+                        <i class="ico ico-3"></i>
+                        <span><%:安全中心%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统状态%></span>
+                    </a>
+                </li>
+                
+                <li <%if string.find(REQUEST_URI, "/roam") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "roam")%>">
+                        <i class="ico ico-7"></i>
+                        <span><%:其他%></span>
+                    </a>
+                </li>
+            </ul>
+            <%else%>
+            <ul class="clearfix li-4">
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/wan") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wan")%>">
+                        <i class="ico ico-2"></i>
+                        <span><%:上网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/safe") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "safe")%>">
+                        <i class="ico ico-3"></i>
+                        <span><%:安全中心%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统状态%></span>
+                    </a>
+                </li>
+            </ul>
+            <%end%>
+        </div>
+        <%end%>
+
+        <%if string.find(REQUEST_URI, "/prosetting") then%>
+        <div class="mod-set-nav mod-set-nav-pro">
+            <ul class="clearfix li-6">
+                <li <%if string.find(REQUEST_URI, "/qos") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","prosetting","qos")%>">
+                        <i class="ico ico-6"></i>
+                        <span><%:QoS智能限速%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/dhcpipmacband") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "prosetting", "dhcpipmacband")%>">
+                        <i class="ico ico-8"></i>
+                        <span><%:DHCP静态IP

@@ -1,0 +1,84 @@
+#!/bin/sh
+# @Xiaomi crashlog processing script
+
+get_crash_log_mtd() {
+	local crashname="$1"
+	local destfile="$2"
+	local crashmtd="$(grep "\"$crashname\"" /proc/mtd | awk -F: '{print $1}')"
+
+	[ -z "$crashmtd" ] && return 0
+
+	crashmtd="/dev/""$crashmtd"
+
+	#TODO: dd may fail to handle bad blocks on nand.
+	crashflag=`dd if="$crashmtd" bs=1 count=4 2>/dev/null | hexdump -e '1/4 "%x"'`
+	[ "$crashflag" = "5ab5" ] || return 0
+
+	#TODO: what if there is no crashflag but mtd is not clean either
+
+	# crash exist
+	cd /tmp
+	if mtd_crash_log -X "$crashmtd"; then
+	    if [ -f "panic.message" ]; then
+		mv panic.message "$destfile"
+	    fi
+	fi
+	mtd erase "$crashmtd" 2>/dev/null
+	return 1
+
+}
+
+get_crash_log() {
+
+	get_crash_log_mtd "crash" "/tmp/crash_logbuf"
+	[ "$?" = "0" ] && return 0
+
+	#crash logbuf found. dig out crash syslog
+	get_crash_log_mtd "crash_syslog" "/tmp/crash_syslog"
+
+	#check wlan fw bin
+	WLAN_FW_LOG=""
+	if [ -f "/data/usr/log/WLAN_FW_9984.BIN.1" ]; then
+		cp /data/usr/log/WLAN_FW_9984.BIN.1 /tmp/
+		mv /data/usr/log/WLAN_FW_9984.BIN.1 /data/usr/log/WLAN_FW_9984.BIN.2
+		WLAN_FW_FILE="WLAN_FW_9984.BIN.1"
+	fi
+	if [ -f "/data/usr/log/WLAN_FW_900B.BIN.1" ]; then
+		cp /data/usr/log/WLAN_FW_900B.BIN.1 /tmp/
+		mv /data/usr/log/WLAN_FW_900B.BIN.1 /data/usr/log/WLAN_FW_900B.BIN.2
+		WLAN_FW_FILE="${WLAN_FW_FILE} WLAN_FW_900B.BIN.1"
+	fi
+	[ -n "${WLAN_FW_FILE}" ] && WLAN_FW_LOG="wlan_fw_bin.tar.gz" && tar -czf ${WLAN_FW_LOG} ${WLAN_FW_FILE}
+
+	cd /tmp
+	if [ -f crash_logbuf -a -f crash_syslog ]; then
+		tar -czf panic.tar.gz crash_logbuf crash_syslog ${WLAN_FW_LOG}
+		rm -f crash_logbuf crash_syslog
+	else
+		tar -czf panic.tar.gz crash_logbuf ${WLAN_FW_LOG}
+		rm -f crash_logbuf
+	fi
+
+	# just overwrite old panic logs
+	mv -f /tmp/panic.tar.gz /data/usr/log/panic.tar.gz
+}
+
+upload_crash_log() {
+	[ -f /data/usr/log/panic.tar.gz ] || return 0
+
+	mtd_crash_log -u /data/usr/log/panic.tar.gz
+	if [ "$?" = "0" ]; then
+	        logger -p local0.warning -t boot_check "Upload crash done."
+		rm -f /data/usr/log/panic.tar.gz
+	else
+	        logger -p local0.warning -t boot_check "Upload crash failed."
+	fi
+}
+
+tmpft=`cat /proc/xiaoqiang/ft_mode`
+[ "$tmpft" = "1" ] && return 0
+
+get_crash_log
+
+upload_crash_log
+

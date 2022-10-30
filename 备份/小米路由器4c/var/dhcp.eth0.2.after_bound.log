@@ -1,0 +1,4 @@
+ARPING to 10.128.0.1 from 10.128.84.2 via eth0.2
+Unicast reply from 10.128.0.1 [70:57:bf:31:a0:2] 1.320ms
+Sent 1 probe(s) (1 broadcast(s))
+Received 1 replies (0 request(s), 0 broadcast(s))

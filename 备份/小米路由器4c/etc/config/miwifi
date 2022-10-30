@@ -1,0 +1,6 @@
+config miwifi 'server'
+	option API api.miwifi.com
+	option LOG log.miwifi.com
+	option S s.miwifi.com
+	option APP app.miwifi.com
+	option STUN stun.miwif.com

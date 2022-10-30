@@ -1,0 +1,37 @@
+Name:	netifd
+State:	S (sleeping)
+Tgid:	1028
+Pid:	1028
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	32
+Groups:	
+VmPeak:	    1784 kB
+VmSize:	    1784 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     820 kB
+VmRSS:	     820 kB
+VmData:	     656 kB
+VmStk:	     136 kB
+VmExe:	     112 kB
+VmLib:	     832 kB
+VmPTE:	      16 kB
+VmSwap:	       0 kB
+Threads:	1
+SigQ:	0/472
+SigPnd:	00000000000000000000000000000000
+ShdPnd:	00000000000000000000000000000000
+SigBlk:	00000000000000000000000000000000
+SigIgn:	00000000000000000000000000001004
+SigCgt:	0000000000000000000000000003c002
+CapInh:	0000000000000000
+CapPrm:	0000001fffffffff
+CapEff:	0000001fffffffff
+CapBnd:	0000001fffffffff
+Cpus_allowed:	1
+Cpus_allowed_list:	0
+voluntary_ctxt_switches:	12689
+nonvoluntary_ctxt_switches:	96

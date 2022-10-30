@@ -1,0 +1,158 @@
+<%
+--[[
+    Info    QoS
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local sys = require "xiaoqiang.util.XQSysUtil"
+local wifiUtil = require("xiaoqiang.util.XQWifiUtil")
+local request_uri = luci.http.getenv("REMOTE_URI")
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = luci.sys.net.ip4mac(remote_addr)
+local lanType = wifiUtil.getDeviceWifiIndex(mac)
+local hardware = string.lower( sys.getHardware() )
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/qos.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include( "web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-bandwidth">
+            <div class="hd">
+                <h3><%:最高速度设置%></h3>
+            </div>
+            <div class="bd">
+                <div class="speed-needtest nospeed" style="display:none;">
+                <div class="speed-result">
+                        <div id="">
+                             <div class="mod-speed-result" style="text-align:left;">
+                                <ul class="clearfix">
+                                    <li class="first">
+                                        <span class="num" id="outband-up">--</span>
+                                        <span class="con">
+                                            MB/s<br>
+                                            <%:最高上传速度%>
+                                        </span>
+                                    </li>
+                                    <li>
+                                        <span class="num" id="outband-down">--</span>
+                                        <span class="con">
+                                            MB/s<br>
+                                            <%:最高下载速度%>
+                                        </span>
+                                    </li>
+                                </ul>
+                                <div class="btns">
+                                    <a href="#" id="btnBandset" class="btn btn-dft btn-m" data-upband="" data-downband=""><span><%:限速设置%></span></a>
+                                     <div class="result-tip" style="display:none"><%:无限速阈值，请先进行限速设置%></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  
+
+                </div>
+                <div class="mod-qos-speedtest hasspeed" style="display:none;">
+                    <div class="speed-result">
+                        <div id="speedresult"></div>
+                    </div>
+                </div>
+                <div class="mod-qos-alert" style="display:none">
+                    <p><%:当外网下载带宽超过50Mbps时，建议无需开启QoS功能%></p>
+                </div>
+            </div>
+        </div>
+        <!--  -->
+        <div class="mod-set mod-qos">
+            <div class="hd" style="margin-bottom:0px;">
+                <h3><%:QoS智能分配%></h3>
+                <div class="switch">
+                    <a data-enable="1" class="btn-switch btn-switch-on" id="btnqos" href="#"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <div class="mod-qos-set hasspeed">
+                    <div class="isoff" id="qosoff" style="display:none;"><%:当前QoS服务暂未开启%></div>
+                    <div class="ison" id="qosset" style="display:none;">
+                        <div class="models settings" style="padding-top:40px;">
+                            <h4 class="tit"><%:根据应用优先级分配网速%></h4>
+                            <div id="qosmode" class="tab clearfix">
+                                <ul>
+                                    <li data-value="0" style="display:none;"><%:自动模式%></li>
+                                    <li data-value="1" style="display:none;"><%:优先级模式%></li>
+                                    <li data-value="2" style="display:none;"><%:手工限速模式%></li>
+                                    <li data-value="3" class="first active"><%:自动模式%></li>
+                                    <li data-value="4"><%:游戏优先%></li>
+                                    <li data-value="5"><%:网页优先%></li>
+                                    <li data-value="6"><%:视频优先%></li>
+                                </ul>
+                            </div>
+                            <div id="qosmodedesc" class="tab-content" style="margin-bottom:25px;">
+                                <p><%:自动模式下路由器会根据当前网络使用情况动态调整带宽分配，保证网络体验流畅%></p>
+                                <p><%:优先级模式下路由器会动态调整带宽分配，保证优先级较高的设备网络体验流畅%></p>
+                                <p><%:手工模式下路由器会根据您设置的速度调整带宽分配%></p>
+                                <p><%:系统根据设备需要自动调配网速%></p>
+                                <p><%:优先保证打游戏的网速，不卡顿不掉线%></p>
+                                <p><%:优先保证浏览网页的网速，大图秒打开%></p>
+                                <p><%:优先保证看视频的网速，高清也流畅%></p>
+                            </div>
+                            <hr></hr>
+                        </div>
+                        <div class="settings">
+                            <h4><%:家庭WiFi限速%> <i class="ico ico-refresh" id="refresh"></i></h4>
+                            <div class="table-devices" id="tableauto" style="display:none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th width="270"><%:设备名称%></th>
+                                            <th width="270"><%:设备信息%></th>
+                                            <th><%:当前网速%></th>
+                                            <!--<th width="180" class="center"><%:限速模式%></th>-->
+                                            <th width="180"><%:最大速度%></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devlistauto"></tbody>
+                                </table>
+                                <div class="btns-edit">
+                                    <a href="#" class="btn btn-dft btn-l btnEditQos" data-mode="0"><span><%:编辑%></span></a>
+                                </div>
+                            </div>
+                            <div id="tablepriority" class="table-devices" style="display:none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th width="270"><%:设备名称%></th>
+                                            <th width="270"><%:设备信息%></th>
+                                            <th><%:当前网速%></th>
+                                            <th width="180" class="center"><%:优先级%></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devlistpriority"></tbody>
+                                </table>
+                                <div class="btns-edit">
+                                    <a href="#" class="btn btn-dft btn-l btnEditQos" data-mode="1"><span><%:编辑%></span></a>
+                                </div>
+                            </div>
+                            <div class="table-devices" id="tablecustom" style="display:none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th width="270"><%:设备名称%></th>
+                                            <th width="270"><%:设备信息%></th>
+                                            <th><%:当前网速%></th>
+                                            <th width="180"><%:最大速度%></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devlistcustom"></tbody>
+                                </table>
+                                <div class="btns-edit">
+                                    <a href="#" class="btn btn-dft btn-l btnEditQos" data-mode="2"><span><%:编辑%></span></a>
+                                </div>
+                            </div>
+                            <hr></hr>
+                        </div>
+                        <div id="

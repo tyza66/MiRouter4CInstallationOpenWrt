@@ -1,0 +1,9 @@
+<%
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local speed = xqlanwanutil.getWanSpeed()
+%>
+<select name="speedselect" id="speedselect" class="beautify" >
+<option value="0" <%if(speed == 0) then%>selected="selected"<%end%>><%:自动（推荐）%></option>
+<option value="100" <%if(speed == 100) then%>selected="selected"<%end%> ><%:100M%></option>
+<option value="10" <%if(speed == 10) then%>selected="selected"<%end%> ><%:10M%></option>
+</select>

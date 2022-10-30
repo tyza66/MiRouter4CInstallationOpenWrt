@@ -1,0 +1,220 @@
+<%
+    local ver = require("xiaoqiang.XQVersion").webVersion
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local color = XQSysUtil.getColor()
+    local routerSrc = resource.."/web/img/topograph/".."router_"..hardware.."_".. color..".png"
+%>
+<%include ("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link rel="stylesheet" href="<%=resource%>/web/css/bc.css?v=<%=ver%>">
+<link rel="stylesheet" href="<%=resource%>/web/css/syslock.css?v=<%=ver%>">
+</head>
+<body>
+<div id="doc">
+    <div class="mod-step mod-download" id="mod-download" style="display:none;">
+        <div class="pic">
+            <img class="download" src="<%=resource%>/web/img/ico_downrom.png">
+        </div>
+        <div id="dldProgress" class="progress-box">
+            <div class="progress-text">
+                <span class="text">
+                    <b id="persent" class="value">0</b><i>%</i>
+                </span>
+            </div>
+            <p class="loading-text"><%:小米路由器正在下载升级包%></p>
+            <div class="progress">
+                <div class="bar" id="persentWidth" style="width: 0%;"></div>
+            </div>
+            <div class="btn-box">
+                <a href="#" class="btn btn-primary" id="btnCancel" style="display:none;"><span><%:取消升级%></span></a>
+            </div>
+        </div>
+    </div>
+    <div class="mod-step mod-upgrade" id="mod-upgrade" style="display:none;">
+        <div class="pic">
+            <img class="devices" src="<%=routerSrc %>">
+            <img class="upgradeimg" src="<%=resource%>/web/img/ico_upgrade.png">
+        </div>
+        <div id="flashProgress" class="flash-box">
+            <div class="loading-bar"></div>
+        </div>
+        <div class="flash-tips">
+            <h3><%:正在升级中%></h3>
+            <ul>
+                <li><span class="n">1</span> <span class="t"><%:请勿断开路由器电源%></span></li>
+                <li><span class="n">2</span> <span class="t"><%:升级过程大约需要5-8分钟，路由器指示灯重新变蓝后，可以通过miwifi.com进入管理后台%></span></li>
+            </ul>
+        </div>
+    </div>
+    <div class="mod-step mod-upgrade mod-reset" id="mod-reset" style="display:none;">
+        <div class="pic">
+            <img class="devices" src="<%=routerSrc %>">
+            <img class="upgradeimg" src="<%=resource%>/web/img/ico_resetwarn.png">
+        </div>
+        <div class="reset-tips">
+            <h3><%:升级注意%></h3>
+            <p><%:当刷回较低版本时，建议您同时清除掉用户配置，以防止版本兼容性引起的异常故障%></p>
+            <p class="label"><label><input type="checkbox" name="isreset" id="isreset"> <span><%:清除当前所有用户配置%></span></label></p>
+            <button id="btnFlashrom" class="btn btn-primary btn-l"><span><%:确定%></span></button>
+        </div>
+    </div>
+</div>
+<%include ("web/inc/g.js")%>
+<script>
+$(function(){
+
+    var timer = null,
+        intervalTime = G_FEATURES.hardware.disk !== '1' ? 6000 : 3000,
+        homeUrl = 'http://' + location.host,
+        // 下载升级包
+        downflash = function() {
+            var requestData = {},
+                requestURL = '<%=luci.dispatcher.build_url("api", "xqsystem", "upgrade_rom")%>';
+            if (G_FEATURES.hardware.disk !== '1') {
+                requestData = {'needpermission': 1};
+            }
+            $.getJSON( requestURL, requestData, function( rsp ) {
+                if (rsp.code !== 0) {
+                    downError( rsp.msg );
+                } else {
+                    $( '.mod-step' ).hide();
+                    $( '#mod-download' ).show();
+                    downStatus();
+                }
+            });
+        },
+        clearPermission = function(){
+            if (G_FEATURES.hardware.disk === '1') {
+                return;
+            }
+            $.getJSON('<%=luci.dispatcher.build_url("api", "xqsystem", "flash_permission")%>', function(rsp){
+                if (rsp.code === 0) {
+                    console.log('start flash');
+                }
+            });
+        },
+        // 下载ROM失败
+        downError = function( msg ) {
+            openRefresh();
+            $.dialog({
+                width: 390,
+                title: '<%:升级失败%>',
+                content: msg,
+                okValue: '<%:确认%>',
+                cancel: false,
+                ok: function() {
+                    window.location.href = homeUrl;
+                }
+            }).lock();
+        },
+        // 展示下载进度
+        showPercent = function( num ) {
+            $( '.mod-step' ).hide();
+            $( '#mod-download' ).show();
+            $( '#persent' ).html( num );
+            $( '#persentWidth' ).css( 'width', num + "%" );
+        },
+        // 检测下载进度
+        downStatus = function() {
+            var requestData = {},
+                requestURL = '<%=luci.dispatcher.build_url("api", "xqsystem", "upgrade_status")%>';
+            var getStatus = null;
+            timer = window.setInterval( function() {
+                if ( getStatus ) {
+                    return;
+                    // getStatus.abort();
+                }
+                getStatus = $.ajax( requestURL, {
+                    timeout: 3 * 60 * 1000,
+                    dataType: 'json',
+                    success: function( rsp ) {
+                        getStatus = null;
+                        $.pub('loading:stop');
+                        if ( rsp.code == 0 ) {
+                            var status = rsp.status;
+                            if ( status == 3 ) {
+                                $( "#btnCancel" ).show();
+                            } else {
+                                $( "#btnCancel" ).hide();
+                            }
+                            if ( status == 3 ) {
+                                showPercent( rsp.percent );
+                            }
+                            // 正在刷写系统 或者 刷写完成
+                            if ( /(5|11|12)/.test( status ) ) {
+                                window.clearInterval( timer );
+                                flashRoming();
+                            }
+                            //flash fail
+                            if( /(6|7|8|9|10)/.test( status ) ){
+                                window.clearInterval( timer );
+                                var msg = {
+                                    6: '<%:下载失败%>',
+                                    7: '<%:没有磁盘空间%>',
+                                    8: '<%:下载失败%>',
+                                    9: '<%:升级包校验失败%>',
+                                    10: '<%:刷写失败%>'
+                                };
+                                downError( msg[status] );
+                            }
+                            // 没有进行系统升级
+                            if ( status == 0 ) {
+                                window.clearInterval( timer );
+                                flashdone(400);
+                            }
+                        } else {
+                            window.clearInterval( timer );
+                            downError( rsp.msg );
+                        }
+                    }
+                });
+                getStatus.fail(function(){
+                    getStatus = null;
+                    console.log( arguments );
+                });
+            }, intervalTime );
+
+        },
+        // 自动升级包下载完成，执行刷写
+        flashDownRom = function() {
+            var requestData = {},
+                requestURL = '<%=luci.dispatcher.build_url("api", "xqsystem", "flash_rom")%>';
+
+            $.ajax({
+                url: requestURL,
+                data: requestData,
+                dataType: 'json'
+            });
+        },
+        // 刷写上传的ROM
+        flashRom = function( isreset ) {
+            var requestData = {custom: 1},
+                requestURL = '<%=luci.dispatcher.build_url("api", "xqsystem", "flash_rom")%>';
+            if ( isreset ) {
+                requestData['recovery'] = 1;
+            }
+            return $.ajax({
+                url: requestURL,
+                data: requestData,
+                dataType: 'json'
+            });
+        },
+        flashdone = function( time ){
+            $( '.mod-step' ).hide();
+            $( '#mod-upgrade' ).show();
+            // 刷写重启完成直接跳转
+            var time = time || 1000 * 60;
+            setTimeout(function(){
+                location.href = 'http://' + window.location.host;
+            }, time);
+        },
+        // 开始运行flash刷机
+        flashRoming = function() {
+            $( '.mod-step' ).hide();
+            $( '#mod-upgrade' ).show();
+            clearPermission();
+            window.setTimeout( function(){
+                openRefresh();
+           

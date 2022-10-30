@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<%
+    local ver = require("xiaoqiang.XQVersion").webVersion
+%>
+<!--[if lt IE 7]><html class="ie6 oldie" lang="zh"><![endif]-->
+<!--[if IE 7]><html class="ie7 oldie" lang="zh"><![endif]-->
+<!--[if IE 8]><html class="ie8 oldie" lang="zh"><![endif]-->
+<!--[if gt IE 8]><!--> <html lang="zh"> <!--<![endif]-->
+<head>
+<meta http-equiv="X-UA-Compatible" content="edge" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="renderer" content="webkit">
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link rel="stylesheet" href="<%=resource%>/web/css/bc.css?v=<%=ver%>">
+<link rel="stylesheet" href="<%=resource%>/diagnosis/css/neterr.css?v=<%=ver%>">
+</head>
+<body>
+<div id="doc">
+    <div class="logo">
+        <img src="<%=resource%>/diagnosis/img/logo.png">
+    </div>
+    <div class="mod-neterr">
+        <div class="hd">
+            <img src="<%=resource%>/diagnosis/img/ico_warn.png">
+            <p><%:对不起，小米路由器目前不支持 IE 6 内核的浏览器%></p>
+        </div>
+        <div class="bd">
+            <p class="last"><%:请将浏览器%><a target="_blank" href="http://www.microsoft.com/zh-cn/download/internet-explorer.aspx"><%:升级至最新版本%></a>，<%:或使用其他浏览器如%> <a target="_blank" href="http://www.google.cn/intl/zh-CN/chrome/">Chrome</a> 、<a target="_blank" href="http://www.firefox.com.cn/">Firefox</a> <p>
+        </div>
+        <div class="ft">
+            &copy; <%:小米路由器%>
+        </div>
+    </div>
+</div>
+</body>
+</html>

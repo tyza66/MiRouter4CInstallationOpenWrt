@@ -1,0 +1,17 @@
+rootfs / rootfs rw 0 0
+/dev/root / squashfs ro,relatime 0 0
+proc /proc proc rw,relatime 0 0
+sysfs /sys sysfs rw,relatime 0 0
+tmpfs /tmp tmpfs rw,nosuid,nodev,relatime 0 0
+tmpfs /dev tmpfs rw,relatime,size=512k,mode=755 0 0
+devpts /dev/pts devpts rw,relatime,mode=600,ptmxmode=000 0 0
+/dev/mtdblock9 /userdisk jffs2 rw,relatime 0 0
+/dev/mtdblock6 /data jffs2 rw,relatime 0 0
+/dev/mtdblock6 /etc jffs2 rw,relatime 0 0
+none /dev/cgroup/mem cgroup rw,relatime,memory 0 0
+none /dev/cgroup/net_cls cgroup rw,relatime,net_cls 0 0
+none /dev/cgroup/cpu cgroup rw,relatime,cpu 0 0
+/dev/root /mnt squashfs ro,relatime 0 0
+/dev/mtdblock6 /mnt jffs2 rw,noatime 0 0
+/dev/root /userdisk/appdata/chroot_file/lib squashfs ro,relatime 0 0
+/dev/root /userdisk/appdata/chroot_file/usr/lib squashfs ro,relatime 0 0

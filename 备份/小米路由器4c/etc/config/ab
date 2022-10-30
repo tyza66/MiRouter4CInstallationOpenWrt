@@ -1,0 +1,9 @@
+
+config ab settings
+	option name 'settings'
+	option enabled 1 
+	option last_speedtest_time '0' 
+	option last_speedtest_date '0' 
+	option max_log_num '5'
+	option current_log_num '1'  
+

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Copyright (C) 2006-2010 OpenWrt.org
+# Copyright (C) 2010 Vertical Communications
+
+do_prepare_eeprom() {
+	# fix eeprom file for R4CM hardware ver B
+	hwver=`gpio 5 | cut -b 11`
+	[ "$hwver" = "1" ] || return 0
+
+	path=`readlink /etc/Wireless/mt7628/mt7628.eeprom.bin`
+	[ "$path" = "/lib/wifi/mt7628_verb.eeprom.bin" ] && return 0
+
+	#fix up
+	rm -f /etc/Wireless/mt7628/mt7628.eeprom.bin
+	ln -s /lib/wifi/mt7628_verb.eeprom.bin /etc/Wireless/mt7628/mt7628.eeprom.bin
+	return 0
+}
+
+boot_hook_add preinit_main do_prepare_eeprom
+

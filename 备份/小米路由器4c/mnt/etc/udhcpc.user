@@ -1,0 +1,13 @@
+#!/bin/sh
+
+[ -z "$1" ] && echo "Udhcpc.user Error: should be run by udhcpc" && exit 1
+
+case "$1" in
+    deconfig)
+        #switch batman-adv client->server
+    ;;
+    renew|bound)
+        #wan ip change
+        lua /usr/sbin/cr_ip_conflict.lua &
+    ;;
+esac

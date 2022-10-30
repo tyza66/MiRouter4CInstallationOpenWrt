@@ -1,0 +1,15 @@
+logfile /tmp/pppoe.log
+noipdefault
+noaccomp
+nopcomp
+nocrtscts
+lock
+maxfail 0
+lcp-echo-failure 3
+lcp-echo-interval 10
+lcp-echo-adaptive
+lcp-max-terminate 1
+
++ipv6
+ipv6 ,
+

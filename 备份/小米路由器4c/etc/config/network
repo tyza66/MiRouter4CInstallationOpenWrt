@@ -1,0 +1,29 @@
+
+config interface 'loopback'
+	option ifname 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config interface 'lan'
+	option ifname 'eth0.1'
+	option type 'bridge'
+	option proto 'static'
+	option ipaddr '192.168.31.1'
+	option netmask '255.255.255.0'
+	option ip6assign '64'
+	list ip6class 'ifb'
+
+config interface 'ifb'
+	option ifname 'ifb0'
+
+config interface 'ready'
+	option proto 'static'
+	option ipaddr '169.254.29.1'
+	option netmask '255.255.255.0'
+
+config interface 'wan'
+	option proto 'dhcp'
+	option mtu '1500'
+	option ifname 'eth0.2'
+

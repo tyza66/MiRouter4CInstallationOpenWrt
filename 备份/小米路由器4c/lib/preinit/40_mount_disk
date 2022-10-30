@@ -1,0 +1,29 @@
+#!/bin/sh
+# Copyright (C) 2006-2010 OpenWrt.org
+# Copyright (C) 2010 Vertical Communications
+
+find_mount_disk() {
+	cat /proc/mtd  | grep -wq disk || return 0
+
+	hexdump  -C -n 8 $(find_mtd_part disk)| awk 'NR<2 {print $2$3$4$5}' >> /dev/console
+	disk_head=`hexdump  -C -n 8 $(find_mtd_part disk)| awk 'NR<2 {print $2$3$4$5}'`
+	if [ "$data_head" = "ffffffff" ] ; then
+		echo "ext disk head  $disk_head"
+		nvram set  flag_format_disk=1
+	fi
+
+	mount "$(find_mtd_part disk)" /userdisk -t jffs2
+	if [ $? -ne 0 ] ; then
+		mtd erase disk
+		mount "$(find_mtd_part disk)" /userdisk -t jffs2
+	fi
+
+	mtd -qq unlock disk
+}
+
+do_mount_disk() {
+	find_mount_disk
+}
+
+boot_hook_add preinit_mount_root do_mount_disk
+

@@ -1,0 +1,9 @@
+config global 'global'
+        option disabled '1'
+        option auth_timeout '90'
+        option timeout '86400'
+        option domain_white_list 's.miwifi.com api.miwifi.com'
+        option ios_domain 'captive.apple.com'
+        option update_cfg_time '12345'
+        option config_md5 '12345'
+

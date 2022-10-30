@@ -1,0 +1,5 @@
+#!/bin/sh
+#
+
+/usr/sbin/datacenterClient -h localhost -p 9090 -i "{\"api\": 63, \"path\": \"\", \"dev\": \"\", \"status\": 4}"
+

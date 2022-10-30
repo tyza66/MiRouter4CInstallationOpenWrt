@@ -1,0 +1,172 @@
+<%
+--[[
+    Info    路由器DDNS设置
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = string.upper(luci.sys.net.ip4mac(remote_addr))
+local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/ddns.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-ddns" id="modSetDDNS">
+            <div class="hd clearfix">
+                <div class="help">
+                    <span class="ico"></span>
+                    <span class="arrow-wrap" id="helpArrow">
+                        <span class="arrow1"></span>
+                        <span class="arrow2"></span>
+                    </span>
+                </div>
+                <h3><%:DDNS%></h3>
+            </div>
+            <div class="bd">
+                <div class="section section-help" id="helpSection">
+                    <div class="help-cont">
+                        <span class="help-close"></span>
+                        <div class="what">
+                            <h3><%:什么是DDNS？%></h3>
+                            <p><%:DDNS（Dynamic Domain Name Server）是动态域名服务的缩写。%></p>
+                            <p><%:目前路由器拨号上网获得的多半都是动态IP，DDNS可以将路由器变化的外网IP和固定的域名绑定，从而用户可以在外网通过该固定域名来访问路由器。%></p>
+                        </div>
+                        <div class="qa">
+                            <h3><%:常见问题%></h3>
+                            <h4><%:如何设置DDNS？%></h4>
+                            <p><%:1. 通过DDNS服务商获得域名及账号密码信息；%></p>
+                            <p><%:2. 开启DDNS服务，添加服务，输入前一步获取的信息，保存并启用该服务。%></p>
+                            <h4><%:注意事项%>:</h4>
+                            <p><%:可以通过内置的DDNS运营商去该运营商官网去注册账号及申请域名；%></p>
+                            <p><%:用户名和密码为注册该运营商的用户名与密码；%></p>
+                            <p><%:主机名称为从运营商申请的域名；%></p>
+                            <p><%:强制检查为WAN口IP的检查时间，如无特殊需求，建议使用默认配置；%></p>
+                            <p><%:强制更新为域名与IP强制更新的时间，如无特殊需求，建议使用默认配置；%></p>
+                            <p><%:只能同时开启一个DDNS服务。%></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <h4><%:服务列表：%></h4>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th><%:服务提供商及主机名称%></th>
+                                <th><%:最近更新%></th>
+                                <th width="165" style="padding-left:15px;"><%:状态%></th>
+                                <th width="156" class="center"><%:操作%></th>
+                            </tr>
+                        </thead>
+                        <tbody id="serviceTbody">
+                        </tbody>
+                    </table>
+                    <div class="addserver-contral">
+                        <a href="#" id="btnAddServer" class="btn btn-dft btn-l"><span><%:添加服务%></span></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <%include("web/inc/footer")%>
+
+</div>
+<%include("web/inc/g.js")%>
+<%include("web/inc/reboot.js")%>
+<script type="tmpl/html" id="tmplService">
+<tr data-service-id="{$id}" {if($enabled == 1)}data-enabled = "1"{/if}>
+    <td>{$servicename}<br/>{$domain}</td>
+    <td class="con">{$lastupdate}&nbsp;&nbsp;|&nbsp;&nbsp;<a href="#" class="forceupdate"><%:手动更新%></a><br/>WAN口&nbsp;IP:&nbsp;&nbsp;{$wanip}</td>
+    <td class="con">{if($enabled == 1)}<%:已启用%>&nbsp;&nbsp;|&nbsp;&nbsp;<a class="close" href="#"><%:停用%></a>{else}<%:未启用%>&nbsp;&nbsp;|&nbsp;&nbsp;<a class="open" href="#"><%:启用%></a>{/if}<br/>{if($status == 1)}<span class="status-ok"><%:连接正常%></span>{elseif($status == 2)}<span><%:连接中...%></span>{else}<span class="status-err"><%:连接错误%></span><span class="err-ico" data-error="{$error}"></span>{/if}</td>
+    <td><a href="#" class="btn btn-dft edit btn-s"><span><%:编辑%></span></a><a href="#" class="btn btn-dft del btn-s"><span><%:删除%></span></a></td>
+</tr>
+</script>
+<script type="tmpl/html" id="tmplAddServer">
+<div class="dialog-form-wrap">
+    <form action="<%=luci.dispatcher.build_url("api", "xqnetwork", "add_server")%>" class="form form-ddns" name="addDdns" id="addDdns">
+        <div class="form-item-select">
+            <label class="k"><%:服务提供商%></label>
+            <span class="v">
+                <select id="servername" class="beautify" name="servername">
+                    <option value="2" selected="selected"><%:花生壳（oray.com）%></option>
+                    <option value="3"><%:公云（3322.org）%></option>
+                    <option value="4"><%:Dyndns.com%></option>
+                    <option value="1"><%:No-ip.com%></option>
+                </select>
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:用户名%></label>
+            <span class="v">
+                <input type="text" id="username" name="username" reqMsg="<%:用户名%>" class="ipt-text" />
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:密码%></label>
+            <span class="v">
+                <input type="text" id="password" name="password" reqMsg="<%:密码%>" class="ipt-text" />
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:主机名称%></label>
+            <span class="v">
+                <input type="text" id="hostname" name="hostname" reqMsg="<%:主机名称%>" class="ipt-text" />
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:状态检查%></label>
+            <span class="v">
+                <input type="text" id="checkinterval" name="checkinterval" reqMsg="<%:状态检查的分钟间隔%>" datatype="n" minValue="1" class="ipt-text" />
+            </span>
+            <em class="t" id="tipminute"><%:分钟%></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:强制更新%></label>
+            <span class="v">
+                <input type="text" id="forceinterval" name="forceinterval" reqMsg="<%:强制更新的小时间隔%>" datatype="n" minValue="1" class="ipt-text" />
+            </span>
+            <em class="t" id="tiphour"><%:小时%></em>
+        </div>
+        <div class="form-contral">
+            <button type="submit" class="btn btn-primary btn-l" id="addDdnsSubmit"><span><%:确定%></span></button>
+        </div>
+    </form>
+</div>
+</script>
+<script type="tmpl/html" id="tmplEditServer">
+<div class="dialog-form-wrap">
+    <form action="<%=luci.dispatcher.build_url("api", "xqnetwork", "ddns_edit")%>" class="form form-ddns" name="editDdns" id="editDdns">
+        <input type="hidden" value="{$enabled}" id="enabled" />
+        <div class="form-item">
+            <label class="k"><%:服务提供商%></label>
+            <span class="v">
+                <input type="text" id="eservername" name="eservername" {if($id == 1)}value="<%:No-ip.com%>"{/if} {if($id == 2)}value="<%:花生壳（oray.com）%>"{/if} {if($id == 3)}value="<%:公云（3322.org）%>"{/if} {if($id == 4)}value="<%:Dyndns.com%>"{/if} class="ipt-text" data-postvalue="{$id}" disabled="disabled" />
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:用户名%></label>
+            <span class="v">
+                <input type="text" id="eusername" name="eusername" reqMsg="<%:用户名%>" value="{$usernametext}" class="ipt-text" />
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:密码%></label>
+            <span class="v">
+                <input type="password" data-type="password"  value="{$passwordtext}"  id="epassword" name="epassword" reqMsg="<%:密码%>" class="ipt-text" />
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="for

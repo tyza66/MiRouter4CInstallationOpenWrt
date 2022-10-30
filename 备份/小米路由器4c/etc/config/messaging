@@ -1,0 +1,5 @@
+
+config messaging 'deviceInfo'
+	option DEVICE_ID '885e0104-2a73-c32d-0b04-eb2995ecf747'
+	option CHANNEL_SECRET '5O3PKMQeHXdGBfU4iwCqYoBw7WrhrehmDnLoPfR2gFg='
+

@@ -1,0 +1,36 @@
+00400000-00406000 r-xp 00000000 1f:08 788        /usr/bin/fcgi-cgi
+00415000-00416000 rw-p 00005000 1f:08 788        /usr/bin/fcgi-cgi
+00416000-0042d000 rw-p 00000000 00:00 0          [heap]
+77c87000-77c9c000 r-xp 00000000 1f:08 391        /lib/libm-0.9.33.2.so
+77c9c000-77cac000 ---p 00000000 00:00 0 
+77cac000-77cad000 rw-p 00015000 1f:08 391        /lib/libm-0.9.33.2.so
+77cad000-77cb5000 r-xp 00000000 1f:08 383        /lib/libubox.so
+77cb5000-77cc4000 ---p 00000000 00:00 0 
+77cc4000-77cc5000 rw-p 00007000 1f:08 383        /lib/libubox.so
+77cc5000-77cfb000 r-xp 00000000 1f:08 914        /usr/lib/libpcre.so.0.0.1
+77cfb000-77d0a000 ---p 00000000 00:00 0 
+77d0a000-77d0b000 rw-p 00035000 1f:08 914        /usr/lib/libpcre.so.0.0.1
+77d0b000-77d9a000 r-xp 00000000 1f:08 385        /lib/libuClibc-0.9.33.2.so
+77d9a000-77da9000 ---p 00000000 00:00 0 
+77da9000-77daa000 r--p 0008e000 1f:08 385        /lib/libuClibc-0.9.33.2.so
+77daa000-77dab000 rw-p 0008f000 1f:08 385        /lib/libuClibc-0.9.33.2.so
+77dab000-77db1000 rw-p 00000000 00:00 0 
+77db1000-77dc4000 r-xp 00000000 1f:08 516        /lib/libgcc_s.so.1
+77dc4000-77dd3000 ---p 00000000 00:00 0 
+77dd3000-77dd4000 rw-p 00012000 1f:08 516        /lib/libgcc_s.so.1
+77dd4000-77de0000 r-xp 00000000 1f:08 964        /usr/lib/libev.so.4.0.0
+77de0000-77def000 ---p 00000000 00:00 0 
+77def000-77df0000 rw-p 0000b000 1f:08 964        /usr/lib/libev.so.4.0.0
+77df0000-77df9000 r-xp 00000000 1f:08 436        /lib/libuci.so
+77df9000-77e08000 ---p 00000000 00:00 0 
+77e08000-77e09000 rw-p 00008000 1f:08 436        /lib/libuci.so
+77e09000-77ec6000 r-xp 00000000 1f:08 1316       /usr/lib/libglib-2.0.so.0.2600.1
+77ec6000-77ed6000 ---p 00000000 00:00 0 
+77ed6000-77ed8000 rw-p 000bd000 1f:08 1316       /usr/lib/libglib-2.0.so.0.2600.1
+77ed8000-77edf000 r-xp 00000000 1f:08 393        /lib/ld-uClibc-0.9.33.2.so
+77eed000-77eee000 rw-p 00000000 00:00 0 
+77eee000-77eef000 r--p 00006000 1f:08 393        /lib/ld-uClibc-0.9.33.2.so
+77eef000-77ef0000 rw-p 00007000 1f:08 393        /lib/ld-uClibc-0.9.33.2.so
+77ef0000-77ef1000 rw-p 00000000 00:00 0 
+7ff56000-7ff77000 rwxp 00000000 00:00 0          [stack]
+7fff7000-7fff8000 r-xp 00000000 00:00 0          [vdso]

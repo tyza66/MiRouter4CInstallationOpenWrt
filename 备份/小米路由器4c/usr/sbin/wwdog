@@ -1,0 +1,26 @@
+#!/bin/sh
+check_factory_mode() {
+    ft_mode=`cat /proc/xiaoqiang/ft_mode`
+    if [ "$ft_mode" = "1" ]; then
+	exit 0
+    fi
+}
+
+# skip wan monitor in FT mode
+check_factory_mode
+
+# check link carrier
+. /lib/functions/network.sh
+network_is_up wan || exit 0
+# don't bother with PPPoE
+network_get_device dev wan
+network_get_physdev pdev wan
+[ "$pdev" == "$dev" ] || exit 0
+
+# dhcp or static
+network_get_gateway gw wan
+if ! arping -f -q -c 3 -w 2 -I "$dev" "$gw"; then
+    ifup wan
+fi
+exit 0
+

@@ -1,0 +1,23 @@
+<%
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+local luciI18n = require "luci.i18n"
+local romVersion = XQSysUtil.getRomVersion()
+local _romChannel = XQSysUtil.getChannel()
+local romChannel = luciI18n.translate("开发版")
+if _romChannel == "current" then
+    romChannel = luciI18n.translate("内测版")
+end
+if _romChannel == "release" then
+    romChannel = luciI18n.translate("稳定版")
+end
+local misc = XQSysUtil.getMiscHardwareInfo()
+local bbsUrl = misc.bbs
+local xqCountryCode = require "xiaoqiang.XQCountryCode"
+local ccode = xqCountryCode.getBDataCountryCode()
+%>
+<div id="ft">
+    <p class="rom-ver"><%:系统版本%>: <%=romVersion%> <%=romChannel%>  <%:MAC地址%>: <%=macdefault%></p>
+    <p>&copy; 2015 <%:小米路由器%><%if (ccode=='CN') then%><span>|</span><a href="http://www1.miwifi.com" target="_blank"><%:官方网站%></a><span>|</span><a href="http://weibo.com/xiaomiluyouqi" target="_blank"><%:官方微博%></a><span>|</span><a href="https://land.xiaomi.net/res/e1fdbc3/land/miwifi/wf_2dcode.jpg" target="_blank" id="wechatcode"><%:官方微信%></a><span>|</span><a href="http://bbs.xiaomi.cn/f-354" target="_blank"><%:用户社区%></a><span>|</span><a target="_blank" href="http://www1.miwifi.com/miwifi_faq.html"><%:常见问题%></a><span>|</span><%:服务热线%>  400-100-5678<%end%><p>
+</div>

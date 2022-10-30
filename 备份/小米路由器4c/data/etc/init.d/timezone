@@ -1,0 +1,59 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org 
+
+START=11
+
+. /lib/functions.sh
+
+set_timezone_from_countrycode() {
+	cc=`bdata get CountryCode`
+
+	case "$cc" in
+		"EU" )	tz="CST-1"
+			;;
+		"US" )	tz="CST+8"  #PST time
+			;;
+		"KR" )	tz="CST-9"
+			;;
+		"UK" )	tz="CST-0"
+			;;
+		"IN" )	tz="CST-5:30"
+			;;
+		*)	tz="CST-8"   #China standard time
+			;;
+	esac
+	echo $tz > /tmp/TZ
+
+	# update uci config. config_set doesn't work >_<
+	# config_set $1 timezone $tz
+	uci set system.@system[0].timezone="$tz"
+
+}
+
+
+timezone_config() {
+	local cfg="$1"
+	local idx
+	local timezone
+
+	# "timezoneindex" exists indicates it was manually changed from web admin interface.
+	# Apply the uci timezone config if timezoneindex exist.
+	# Otherwise use timezone from country code.
+	config_get idx "$cfg" timezoneindex
+
+	if [ -z "$idx" ]; then
+		set_timezone_from_countrycode $cfg
+	else
+		config_get timezone "$cfg" timezone 'UTC'
+		echo "$timezone" > /tmp/TZ
+	fi
+	# apply timezone to kernel
+	date -k
+}
+
+
+start() {
+	config_load system
+        config_foreach timezone_config system
+}
+

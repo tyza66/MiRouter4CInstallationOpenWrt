@@ -1,0 +1,140 @@
+#!/bin/sh
+#
+#
+#
+#
+export LANG=C
+#
+. /lib/lib.scripthelper.sh
+#
+NVRAMDEFAULTFILE='/usr/share/xiaoqiang/xiaoqiang-defaults.txt'
+#
+if [ -s "/rom/$NVRAMDEFAULTFILE" ]
+then
+	NVRAMDEFAULTFILE="/rom/$NVRAMDEFAULTFILE"
+else
+	if [ ! -s "$NVRAMDEFAULTFILE" ]
+	then
+		elog " * "
+		elog "ERROR: $NVRAMDEFAULTFILE no exist or empty."
+		elog " * "
+		exit 1
+	fi
+fi
+NVRAMDEFAULTFILE=$(strippath $NVRAMDEFAULTFILE)
+elog " * "
+elog " DEFAULT: $NVRAMDEFAULTFILE "
+elog " * "
+#
+errfile="/tmp/error.nvram.txt.$$"
+newfile="/tmp/new.nvram.txt.$$"
+elog " * "
+elog " NEW: $newfile "
+elog " * "
+touch $errfile && touch $newfile && nvram show > $errfile 2>/dev/null
+if [ $? -ne 0 ]
+	then
+	elog "ERROR: nvram show > $errfile failed."
+	exit 1
+fi
+elog " * "
+elog " DEDUP: $errfile "
+elog " * "
+while read oneline
+do
+	nvkey="$(echo $oneline|awk -F'=' '{print $1}')"
+	test -z "$nvkey" && continue
+	#nvkeylen=${#nvkey}
+	#let nvkeylen=$nvkeylen+1
+	#nvval="${oneline:$nvkeylen:65535}"
+	##elog "DEBUG: % $oneline % => $nvkey : $nvval"
+	dupstr="$(cat $newfile | grep ^$nvkey=)"
+	if [ -n "$dupstr" ]
+		then
+		elog "DUP: $nvkey: $dupstr VS $oneline"
+		continue
+	fi
+	echo "$oneline" >> $newfile
+	if [ $? -ne 0 ]
+		then
+		elog " * "
+		elog "ERROR: write to $newfile failed."
+		exit 1
+	fi
+done < $errfile
+elog " * "
+elog " MERGE: $newfile "
+elog " * "
+changecnt=0
+while read oneline
+do
+	nvkey="$(echo $oneline|awk -F'=' '{print $1}')"
+	test -z "$nvkey" && continue
+	dupstr="$(cat $newfile | grep ^$nvkey=)"
+	if [ -n "$dupstr" ]
+		then
+		#elog "EXIST: $nvkey: $oneline VS $dupstr"
+		continue
+	fi
+	elog "ADD: $nvkey: $oneline"
+	echo "$oneline" >> $newfile
+	if [ $? -ne 0 ]
+		then
+		elog " * "
+		elog "ERROR: write to $newfile failed."
+		exit 1
+	fi
+	let changecnt=$changecnt+1
+done < $NVRAMDEFAULTFILE
+elog " * "
+elog " APPLIY: $newfile "
+elog " * "
+commitcnt=0
+unknowcnt=0
+while read oneline
+do
+	nvkey="$(echo $oneline|awk -F'=' '{print $1}')"
+	test -z "$nvkey" && continue
+	#elog "DEBUG: nvram unset $nvkey && nvram set $oneline"
+	nvram unset "$nvkey" && nvram set "$oneline"
+	if [ $? -ne 0 ]
+		then
+		elog " * "
+		elog "ERROR: nvram unset $nvkey && nvram set $oneline failed."
+		exit 1
+	fi
+	#nvkeylen=${#nvkey}
+	#let nvkeylen=$nvkeylen+1
+	#nvval="${oneline:$nvkeylen:65535}"
+	##elog "DEBUG: % $oneline % => $nvkey : $nvval"
+	dupstr="$(cat $NVRAMDEFAULTFILE | grep ^$nvkey=)"
+	if [ -z "$dupstr" ]
+		then
+		elog "UNKNOW: $oneline"
+		let unknowcnt=$unknowcnt+1
+	fi
+	let commitcnt=$commitcnt+1
+	if [ $commitcnt -ge 20 ]
+		then
+		nvram commit
+		if [ $? -ne 0 ]
+			then
+			elog " * "
+			elog "ERROR: nvram commit failed."
+			exit 1
+		fi
+		commitcnt=0
+	fi
+done < $newfile
+nvram commit
+if [ $? -ne 0 ]
+	then
+	elog " * "
+	elog "ERROR: nvram commit failed."
+	exit 1
+fi
+#
+elog " * "
+elog " ALL DONE, $changecnt changed, $unknowcnt unknow."
+elog " * "
+#

@@ -1,0 +1,3 @@
+tcpsvd: listening on 0.0.0.0:21, starting
+tcpsvd: status 1/30
+tcpsvd: start 20223 192.168.31.1:21-192.168.31.89:58391

@@ -1,0 +1,170 @@
+<%
+local ver = require("xiaoqiang.XQVersion").webVersion
+local sys = require "xiaoqiang.util.XQSysUtil"
+local XQLanWanUtil = require "xiaoqiang.util.XQLanWanUtil"
+local wifiUtil = require "xiaoqiang.util.XQWifiUtil"
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local XQIPConflict = require("xiaoqiang.module.XQIPConflict")
+local xqCountryCode = require "xiaoqiang.XQCountryCode"
+
+if sys.getInitInfo() then
+    luci.http.redirect(luci.dispatcher.build_url("web", "home"))
+end
+
+local wifiInfo = wifiUtil.getAllWifiInfo()
+local ssid = ""
+if wifiInfo[1] then
+    ssid = wifiInfo[1]['ssid']
+end
+ssid = XQFunction.encode4HtmlValue(ssid)
+local status = sys.checkSystemStatus()
+local wan = true
+if not status.wan or not status.link then
+    wan = false
+end
+
+local wanType = 2
+local AutoWanType = XQLanWanUtil.getAutoWanType()
+if AutoWanType then
+    wanType = AutoWanType
+end
+
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = luci.sys.net.ip4mac(remote_addr)
+local lanType = wifiUtil.getDeviceWifiIndex(mac)
+local uci = require("luci.model.uci").cursor()
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local hardware = string.lower( sys.getHardware() )
+local color = sys.getColor()
+local routerSrc = resource.."/web/img/topograph/".."router_"..hardware.."_".. color..".png"
+local ipConflict = XQIPConflict.ip_conflict_detection()
+if not ipConflict then
+    ipConflict = 0
+end
+local lang = sys.getLang()
+local ccode = xqCountryCode.getBDataCountryCode()
+
+local wifi50IsSupport = features["wifi"]["wifi50"]
+%>
+<%include("web/inc/head")%>
+    <title><%:小米路由器%></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+    <link href="<%=resource%>/web/css/guide.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div class="guide-cont-wrap">
+    <div class="for-middle-cont">
+        <div id="guide-doc">
+            <div id="guide-bd">
+                <div class="mod-guide mod-guide-ipconflict">
+                    <p class="tit font18"><%:检测到与上级路由器存在IP冲突%></p>
+                    <div class="hr"></div>
+                    <p class="select-tip"><%:推荐您使用有线中继工作模式%></p>
+                    <div class="select-divs">
+                        <div class="select-option">
+                            <img src="<%=resource%>/web/img/guide_bd_ipconflict.png?v=<%=ver%>" />
+                            <br />
+                            <p class="gray"><%:该模式可以确保您的小米路由器与上%><br><%:级路由器处于同一局域网内可以互访%></p>
+                            <a href="#" class="btn btn-dft btn-block skipto" data-to="lanap" data-from="ipconflict"><span><%:有线中继工作模式%></span></a>
+                        </div>
+                        <div class="select-option">
+                            <a href="#" class="btn-border skipto gray" data-to="ssidpwd" data-from="ipconflict">
+                                <span><%:普通路由器模式%></span>
+                                <em>(<%:局域网IP将变更为%> <i></i>)</em>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <!-- /ipconflict-->
+                <div class="mod-guide mod-guide-nowanselect">
+                    <p class="tit font18"><%:你似乎没有连接网线%></p>
+                    <div class="hr"></div>
+                    <p class="select-tip"><%:你可以选择所需的路由器工作模式继续设置%></p>
+                    <div class="select-option">
+                        <img src="<%=resource%>/web/img/guide_bd_nowanselect.png?v=<%=ver%>" />
+                        <br />
+                        <a href="#" class="btn btn-dft btn-block skipto" data-to="pppoeorssidpwd" data-from="nowanselect"><span><%:路由器工作模式(创建一个无线网络)%></span></a>
+                    </div>
+                    <%if features["apmode"]["wifiapmode"] == "1" then%>
+                    <div class="select-option select-option-last">
+                        <img src="<%=resource%>/web/img/guide_bd_nowanselect_rp.png?v=<%=ver%>" />
+                        <br />
+                        <a href="#" class="btn btn-dft btn-block skipto" data-to="wds" data-from="nowanselect"><span><%:中继工作模式(扩展现有的无线网络)%></span></a>
+                    </div>
+                    <%end%>
+                </div>
+                <!-- /wan口未连接-->
+                <div class="mod-guide mod-guide-pppoe">
+                    <div class="for-succ hide">
+                        <img src="<%=resource%>/web/img/guide_hd_finish.png?v=<%=ver%>" >
+                        <p><%:旧路由器宽带设置已经导入%></p>
+                    </div>
+                    <div class="un-for-succ">
+                        <div class="pic"><img src="<%=routerSrc %>?v=<%=ver%>" ></div>
+                        <p class="tit font18"><%:请输入网络运营商提供的用户名与密码%></p>
+                    </div>
+                    <div class="hr"></div>
+                    <form id="pppoe" name="pppoe" class="form clearfix" action="/">
+                        <div class="form-inputs">
+                            <div class="form-item">
+                                <label class="k"><%:用户名%></label>
+                                <span class="v"><input reqMsg="<%:用户名%>" name="ppoename" type="text" class="ipt-text" autocomplete="off"></span>
+                                <em class="t"></em>
+                            </div>
+                            <div class="form-item" id="pppoepasswdline">
+                                <label class="k"><%:密码%></label>
+                                <span class="v"><input reqMsg="<%:密码%>" name="ppoepwd" data-type="password" type="password" class="android-input ipt-text" autocomplete="off"></span>
+                                <em class="t"></em>
+                            </div>
+                        </div>
+                        <div class="form-contral">
+                            <button class="btn btn-primary btn-m" type="submit"><span><%:下一步%></span></button>
+                            <button class="btn btn-dft btn-m r skipto" data-to="pppoecatchstep1" data-from="pppoe" type="button"><span><%:从旧路由器获取%></span></button>
+                        </div>
+                    </form>
+                    <p class="switchstep">
+                        <a href="#" class="a1 skipto goback" data-to="hellopage" ><%:返回%></a>
+                        <%if (wanType==1) then%>
+                            <span>|</span>
+                            <a href="#" class="a1 skipto" data-to="ssidpwd" data-from="pppoe"><%:无需拨号(DHCP方式)%></a>
+                        <%end%>
+                        <%if (ccode=='CN') then%>
+                            <span>|</span>
+                            <a href="#" class="a1 skipto" data-to="forgetpassword" data-from="pppoe"><%:忘记密码%></a>
+                        <%end%>
+                    </p>
+                </div>
+                <!--/pppoe-->
+                <div class="mod-guide mod-guide-forgetpassword">
+                    <img src="<%=routerSrc %>?v=<%=ver%>" >
+                    <p class="tit font18"><%:可通过以下方式以找回宽带密码%></p>
+                    <div class="hr"></div>
+                    <a href="#" class="btn btn-primary  btn-block skipto" data-to="pppoecatchstep1" data-from="forgetpassword"><span><%:从旧路由器获取%></span></a>
+                    <p class="list-t"><%:联系宽带服务商找回密码%></p>
+                    <div class="operators-wrap">
+                        <ul>
+                            <li class="clearfix">
+                                <span>10000</span>
+                                <%:中国电信宽带客服%>
+                            </li>
+                            <li class="clearfix">
+                                <span>10010</span>
+                                <%:中国联通电信客服%>
+                            </li>
+                            <li class="clearfix">
+                                <span>10086</span>
+                                <%:中国移动宽带客服%>
+                            </li>
+                            <li class="clearfix">
+                                <span>96196</span>
+                                <%:歌华有线客服%>
+                            </li>
+                            <li class="clearfix">
+                                <span>952155</span>
+                                <%:艾普宽带客服%>
+                            </li>
+                            <li class="clearfix">
+                           

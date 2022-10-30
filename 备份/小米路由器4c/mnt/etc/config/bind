@@ -1,0 +1,4 @@
+config global 'info'
+    option status '0'
+    option record '0'
+    option remoteID 'null'

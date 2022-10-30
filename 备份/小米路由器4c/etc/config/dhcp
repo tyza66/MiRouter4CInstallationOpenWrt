@@ -1,0 +1,46 @@
+#
+config dnsmasq
+	#enable domainneeded for samba
+	option domainneeded	1
+	option boguspriv	1
+	option localise_queries	1
+	option rebind_protection 0  # disable if upstream must serve RFC1918 addresses
+	option rebind_localhost 1  # enable for RBL checking and similar services
+	#list rebind_domain example.lan  # whitelist RFC1918 responses for domains
+	option local	'/lan/'
+	option expandhosts	1
+	option nonegcache	1
+	option authoritative	1
+	option logqueries 0
+	option logdhcp 0
+	option allservers 1
+	option clearonreload 1
+	option cachesize 1000
+	option negttl 300
+	option maxttl 300	# 5 min
+	option maxcachettl 1800 # 30 min
+	option local_ttl 0
+	option dnsforwardmax 300
+	option leasefile	'/tmp/dhcp.leases'
+	option resolvfile	'/tmp/resolv.conf.auto'
+	option client_update_ddns '1'
+
+config dhcp lan
+	option interface	lan
+	option start	 5
+	option limit	250
+	option leasetime	12h
+	#force mean start dhcp even if already have a dhcp server running
+	option force	1
+
+config dhcp wan
+	option interface	wan
+	option ignore	1
+
+config dhcp ready # for miwifi_ready
+	option interface	ready
+	option start	 10
+	option limit	 20
+	option leasetime	5m
+	#force mean start dhcp even if already have a dhcp server running
+	option force	1

@@ -1,0 +1,63 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2012 OpenWrt.org
+
+START=99
+STOP=01
+
+start() {
+	return 0
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+	return $?
+}
+
+shutdown() {
+	stop
+	return $?
+}
+
+stop() {
+
+    local pid_tmd=$(pidof "taskmonitorDaemon")
+    [ -n "$pid_tmd" ] && kill -9 "$pid_tmd"
+	
+    local pid_tms=$(pidof "taskmonitorServer")
+    [ -n "$pid_tms" ] && kill -9 "$pid_tms"
+	
+	
+	#ease memory pressure
+	sync
+	echo 3 > /proc/sys/vm/drop_caches
+	echo 512 > /proc/sys/vm/min_free_kbytes
+
+	if [ -f "/etc/init.d/hwnat" ] ;then
+	    /etc/init.d/hwnat stop 2>/dev/null
+	fi
+
+
+	if [ -f "/etc/init.d/sysapihttpd" ] ;then
+	    /etc/init.d/sysapihttpd stop 2>/dev/null
+	fi
+
+	# gently stop pppd, let it close pppoe session
+	ifdown wan
+	timeout=5
+	while [ $timeout -gt 0 ]; do
+	    pidof pppd >/dev/null || break
+	    sleep 1
+	    let timeout=timeout-1
+	done
+
+	wifi down
+	
+	return $?
+}
+status() {
+	echo "status"
+	return $?
+}
+#

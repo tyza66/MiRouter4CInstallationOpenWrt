@@ -1,0 +1,14 @@
+#!/bin/sh
+
+. /usr/lib/ddns/dynamic_dns_functions.sh
+
+if [ "$ACTION" = "ifup" -a "$INTERFACE" = "wan" -a "$(uci get ddns.ddns.status 2>/dev/null)" = "on" ]; then
+	logger -t "hotplug.d" "reloading ddns"
+	/usr/sbin/ddnsd reload
+	if [ $? -eq 0 ]
+	then
+		logger -t "hotplug.d" "ddns ok"
+	else
+		logger -t "hotplug.d" "ddns failed"
+	fi
+fi

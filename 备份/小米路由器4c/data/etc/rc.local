@@ -1,0 +1,4 @@
+# restore phy config
+speed=$(uci -q get xiaoqiang.common.WAN_SPEED)
+[ -n "$speed" ] && /usr/sbin/phyhelper swan "$speed"
+exit 0

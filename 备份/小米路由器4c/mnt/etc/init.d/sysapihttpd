@@ -1,0 +1,144 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2012 OpenWrt.org
+
+START=21
+STOP=60
+
+extraHelp=$(cat <<EOF
+        status  Status the service
+        restartFcgi Restart FCGI only
+EOF
+)
+export EXTRA_HELP="${extraHelp}"
+export EXTRA_COMMANDS="status restartFcgi"
+
+path_init() { return 0; } # dummy
+path_exit() { return 0; }
+. /etc/sysapihttpd/init # broad specify init
+
+NGINX="/usr/sbin/sysapihttpd"
+HTTPDLINE="$NGINX -c /tmp/sysapihttpdconf/sysapihttpd.conf"
+HTTPDFLAG="nginx: master process $HTTPDLINE"
+fcgi_connection=${FCGI_CONNECTION:-8}
+FCGIFLAG="/usr/bin/fcgi-cgi -c $fcgi_connection" # default is 16 connection which is too much
+fcgi_process=${FCGI_NUM:-2}
+FCGILINE="nice -n-5 /usr/bin/spawn-fcgi -a 127.0.0.1 -p 8920 -u root -U nobody -F $fcgi_process -- ${FCGIFLAG}"
+
+stop() {
+    #export command line for /usr/sbin/supervisord
+    export PROCLINE="${HTTPDLINE}"
+    export PROCFLAG="${HTTPDFLAG}"
+
+    /usr/sbin/supervisord stop
+    sleep 1
+    #export command line for /usr/sbin/supervisord
+    export PROCLINE="${FCGILINE}"
+    export PROCFLAG="${FCGIFLAG}"
+    /usr/sbin/supervisord stop
+    ret="$?"
+    killall -s 9 luci >/dev/null 2>&1
+    path_exit
+    return $ret
+}
+
+start() {
+  path_init
+
+  # start fcgi first
+  if ! startFcgi; then
+      return $?
+  fi
+
+  . /usr/sbin/ngxld
+  #export command line for /usr/sbin/supervisord
+  export PROCLINE="${HTTPDLINE}"
+  export PROCFLAG="${HTTPDFLAG}"
+  export PROCNUM='1'
+  /usr/sbin/supervisord start
+  return $?
+}
+
+reload() {
+    . /usr/sbin/ngxld
+    ${NGINX} -c /tmp/sysapihttpdconf/sysapihttpd.conf -s reload
+}
+
+restart() {
+  stop
+  sleep 1
+  start
+  return $?
+}
+
+shutdown() {
+  stop
+  return $?
+}
+
+status() {
+  #export command line for /usr/sbin/supervisord
+  export PROCLINE="${FCGILINE}"
+  export PROCFLAG="${FCGIFLAG}"
+  /usr/sbin/supervisord status
+  fcgi=$?
+  export PROCLINE="${HTTPDLINE}"
+  export PROCFLAG="${HTTPDFLAG}"
+  /usr/sbin/supervisord status
+  test $? -eq 0 -a $fcgi -eq 0 && return 0
+  return 1
+}
+
+stopFcgi() {
+  #export command line for /usr/sbin/supervisord
+  export PROCLINE="${FCGILINE}"
+  export PROCFLAG="${FCGIFLAG}"
+  /usr/sbin/supervisord stop
+  ret="$?"
+  killall -s 9 luci >/dev/null 2>&1  
+  return "$ret"
+}
+
+startFcgi() {
+  export PROCLINE="${FCGILINE}"
+  export PROCFLAG="${FCGIFLAG}"
+  export PROCNUM="${fcgi_process}"
+
+  /usr/sbin/supervisord start
+  isok=0
+  for oneitem in 1 2 3 4 5
+  do
+    /usr/sbin/supervisord status >/dev/null 2>&1
+    if [ $? -ne 0 ]
+      then
+      sleep 1
+    else
+      isok=1
+      break
+    fi
+  done
+  if [ $isok -eq 0 ]
+    then
+    echo "WARNING: fcgi-cgi start failed."
+  fi
+  return $?
+}
+
+restartFcgi() {
+  lockdir=/tmp/fcgilock
+  mkdir "$lockdir"
+  if [ $? -eq 0 ]
+    then
+    echo "Restarting fcgi"
+    trap 'rm -rf "$lockdir"' 0
+    stopFcgi
+    sleep 1
+    startFcgi
+    return $?
+  else
+    echo "Someone else is restarting fcgi"
+    sleep 5
+    rm -rf "$lockdir" >/dev/null 2>&1
+    echo "Remove $lockdir after 5 seconds"
+  fi
+}
+#

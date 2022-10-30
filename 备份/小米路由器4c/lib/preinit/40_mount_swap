@@ -1,0 +1,12 @@
+#!/bin/sh
+# Copyright (C) 2016 Xiaomi
+
+do_mount_swap() {
+
+	echo $((8*1024*1024)) > /sys/block/zram0/disksize
+	mkswap /dev/zram0
+	swapon /dev/zram0		
+	
+}
+
+boot_hook_add preinit_essential do_mount_swap

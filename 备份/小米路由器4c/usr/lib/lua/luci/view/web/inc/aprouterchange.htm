@@ -1,0 +1,114 @@
+<div class="mod-set mod-aprouterswitch">
+    <div class="hd">
+        <h3><%:中继路由器切换%></h3>
+    </div>
+    <div class="bd">
+        <p><%:切换其他路由器为中继目标%></p>
+        <a href="#" type="submit" id="btnApRouterSwitch" class="btn btn-primary btn-l"><span><%:切换%></span></a>
+    </div>
+</div>
+<script type="tmpl/html" id="tmplApRouterSwitch">
+<div class="netmode-switch-dialog-cont ap-router-switch-dialog-cont">
+	<div class="switch-step step-wds" style="display:block;">
+        <p class="tit"><%:请选择要扩大范围的无线网络%></p>
+        <form id="wdsAprouter" name="wdsAprouter" class="form clearfix" action="/">
+            <div class="form-item-out toggle-element flag-is-select ssid-select-relative" id="ssidSelectDiv">
+                <div class="form-item-select">
+                    <label class="k"><%:选择网络%></label>
+                    <span class="v">
+                         <select id="ssidselect" name="ssidselect" class="beautify" >
+
+                            <option value=""><%:正在扫描附近的无线网络%></option>
+                        </select>
+                    </span>
+                    <em class="t"></em>
+                </div>
+                <span id="btnFreshenWIFIAprouter" class="icon-freshen"></span>
+            </div>
+            <div class="form-item-out toggle-element hide">
+                <div class="form-item">
+                    <label class="k"><%:网络名称%></label>
+                    <span class="v"><input reqMsg="<%:网络名称%>" datatype="ssid" minlength="1" maxlength="31" name="ssidinput" type="text" class="ipt-text" autocomplete="off"></span>
+                    <em class="t"></em>
+                </div>
+            </div>
+            <div class="form-item-out toggle-element">
+	            <div class="form-item" id="wdsWifiInputDivForSelect">
+	                <label class="k"><%:输入密码%></label>
+	                <span class="v"><input reqMsg="<%:网络密码%>" datatype="wifipassword" minlength="8" maxlength="63" name="passwordforselect" data-type="password"  type="password" class="ipt-text" autocomplete="off"></span>
+	                <em class="t"></em>
+	            </div>
+	            <div class="form-item" id="wdsWifiInputDivForSelectWep" style="display:none;">
+	                <label class="k"><%:输入密码%></label>
+	                <span class="v"><input reqMsg="<%:网络密码%>" datatype="weppassword" minlength="5" maxlength="32" name="passwordforselectwep" data-type="password"  type="password" class="ipt-text" autocomplete="off"></span>
+	                <em class="t"></em>
+	            </div>
+            </div>
+            <div class="form-item-out toggle-element hide">
+	            <div class="form-item" id="wdsWifiInputDivForInput">
+	                <label class="k"><%:输入密码%></label>
+	                <span class="v"><input name="passwordforinput" data-type="password"  type="password" class="ipt-text" autocomplete="off"></span>
+	                <em class="t"></em>
+	            </div>
+            </div>
+            <p class="change-select-type"><a class="a1" href="#" id="changeSelectTypeAprouter"><%:手工输入网络名称%></a></p>
+            <div class="form-new-ssid">
+            <div class="contral" style="display:none;">
+            	<label for="newssidtextInnetmod">
+            		<input type="checkbox" id="newssidtextInnetmod" checked="checked" /> 
+            		<span><%:无线网络的名称密码与目标路由器一致%></span>
+            	</label>	
+			</div>
+				<div class="contral-div hide" id="newssiddiv">
+	            	<p class="title"><%:设置WiFi名称和密码%></p>
+	                <div class="form-item">
+	                    <label class="k"><%:WiFi名称%></label>
+	                    <span class="v"><input  reqMsg="<%:Wi-Fi名称%>" datatype="ssid" minlength="1" maxlength="31" name="ssidinputfornewssid" type="text" class="ipt-text" autocomplete="off"></span>
+	                    <em class="t"></em>
+	                </div>
+	                <div class="form-item-select">
+	                    <label class="k"><%:加密方式%></label>
+	                    <span class="v">
+	                        <select name="encryptionkey" id="encryptionkey" class="beautify" >
+	                            <option value="mixed-psk"><%:混合加密(WPA/WPA2个人版)%></option>
+	                            <option value="psk2"><%:强加密(WPA2个人版)%></option>
+	                            <option value="none"><%:无加密(允许所有人连接)%></option>
+	                        </select>
+	                    </span>
+	                    <em class="t"></em>
+	                </div>
+		            <div class="form-item" id="newssidpassitem">
+		                <label class="k"><%:WiFi密码%></label>
+		                <span class="v"><input reqMsg="<%:Wi-Fi密码%>" datatype="wifipassword" minlength="8" maxlength="63" name="passwordfornewssid" data-type="password"  type="password" class="ipt-text" autocomplete="off"></span>
+		                <em class="t"></em>
+		            </div>
+	            </div>
+            </div>
+			<div class="tip-div">
+				<span class="text"><%:找不到要中继的网络%></span><span class="ico-tip"></span>
+				<div class="tip-wrap hide">
+					<div class="arrow"></div>
+					<div class="inner">
+						<%:请确认主路由器和中继路由器的Wi-Fi均已开启。%>
+					</div>
+				</div>
+			</div>
+            <div class="form-contral">
+                <button class="btn btn-primary btn-l" type="submit"><span><%:一键无线中继%></span></button>
+            </div>
+        </form>
+	</div>
+	<div class="switch-step step-setting">
+		<p><%:正在设置中，请稍候...%><br /><%:请不要关闭浏览器或断开路由器%></p>
+		<span class="loading"></span>
+	</div>
+	<div class="switch-step step-succ">
+		<h3><%:恭喜，小米路由器一键中继设置成功！%></h3>
+		<p class="text"><%:1. 当前无线网络名称为%>：</p>
+		<p class="center"><span id="newssid"></span></p>
+		<p class="text"><%:2. 当前小米路由器的IP地址为%>：</p>
+		<p class="center"><span id="newip"></span></p>
+		<a id="btnSuccAprouter" href="#" class="btn btn-primary btn-large"><span><%:确定%></span></a>
+	</div>
+</div>
+</script>

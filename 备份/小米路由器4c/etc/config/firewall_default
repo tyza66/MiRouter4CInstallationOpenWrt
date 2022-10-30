@@ -1,0 +1,239 @@
+config defaults
+	#temp disable syn_flood proctect.
+	option syn_flood	0
+	option input		ACCEPT
+	option output		ACCEPT
+	option forward		REJECT
+	option drop_invalid	1
+# Uncomment this line to disable ipv6 rules
+	option disable_ipv6	1
+
+config zone
+	option name		lan
+	list   network	'lan'
+	option network	'lan'
+	option input		ACCEPT
+	option output		ACCEPT
+	option forward		REJECT
+
+config zone
+	option name		wan
+	list   network	'wan'
+	option network		'wan'
+	option input		REJECT
+	option output		ACCEPT
+	option forward		REJECT
+	option masq		1
+	option mtu_fix		1
+
+config forwarding
+	option src		lan
+	option dest		wan
+
+# We need to accept udp packets on port 68,
+# see https://dev.openwrt.org/ticket/4108
+config rule
+	option name		Allow-DHCP-Renew
+	option src		wan
+	option proto		udp
+	option dest_port	68
+	option target		ACCEPT
+	option family		ipv4
+
+# Allow IPv4 ping
+config rule
+	option name		Allow-Ping
+	option src		wan
+	option proto		icmp
+	option icmp_type	echo-request
+	option family		ipv4
+	option target		ACCEPT
+
+# Allow DHCPv6 replies
+# see https://dev.openwrt.org/ticket/10381
+config rule
+	option name		Allow-DHCPv6
+	option src		wan
+	option proto		udp
+	option src_ip		fe80::/10
+	option src_port		547
+	option dest_ip		fe80::/10
+	option dest_port	546
+	option family		ipv6
+	option target		ACCEPT
+
+# Allow essential incoming IPv6 ICMP traffic
+config rule
+	option name		Allow-ICMPv6-Input
+	option src		wan
+	option proto	icmp
+	list icmp_type		echo-request
+	list icmp_type		echo-reply
+	list icmp_type		destination-unreachable
+	list icmp_type		packet-too-big
+	list icmp_type		time-exceeded
+	list icmp_type		bad-header
+	list icmp_type		unknown-header-type
+	list icmp_type		router-solicitation
+	list icmp_type		neighbour-solicitation
+	list icmp_type		router-advertisement
+	list icmp_type		neighbour-advertisement
+	option limit		1000/sec
+	option family		ipv6
+	option target		ACCEPT
+
+# Allow essential forwarded IPv6 ICMP traffic
+config rule
+	option name		Allow-ICMPv6-Forward
+	option src		wan
+	option dest		*
+	option proto		icmp
+	list icmp_type		echo-request
+	list icmp_type		echo-reply
+	list icmp_type		destination-unreachable
+	list icmp_type		packet-too-big
+	list icmp_type		time-exceeded
+	list icmp_type		bad-header
+	list icmp_type		unknown-header-type
+	option limit		1000/sec
+	option family		ipv6
+	option target		ACCEPT
+
+# include a file with users custom iptables rules
+#
+#nat
+config include 'webinitrdr'
+	option path '/lib/firewall.sysapi.loader webinitrdr'
+	option reload "1"
+	option enabled "1"
+
+#nat
+config include 'dnsmiwifi'
+	option path '/lib/firewall.sysapi.loader dnsmiwifi'
+	option reload "1"
+	option enabled "1"
+
+config include 'macfilter'
+	option path '/lib/firewall.sysapi.loader macfilter'
+	option reload "1"
+	option enabled "1"
+
+config include 'miqos'
+	option path '/lib/firewall.sysapi.loader miqos'
+	option reload "1"
+
+config include 'turbo'
+	option path '/lib/firewall.sysapi.loader turbo'
+	option reload "1"
+	option enabled "1"
+
+config include 'xqfp'
+	option path '/lib/firewall.sysapi.loader xqfp'
+	option reload "1"
+
+config include 'firewalluser'
+	option path /etc/firewall.user
+	option reload 1
+
+config include 'dmz_bypass_ctf'
+	option path '/lib/firewall.sysapi.loader dmz_bypass_ctf'
+	option reload '1'
+
+config include 'rr_rule'
+       option path '/lib/firewall/rr.load reload'
+       option reload '1'
+
+config rule 'xunleiwantcpports'
+	option name 'xunlei wan accept tcp port 1080 4662 2080 2062'
+	option src 'wan'
+	option dest_port '1080 4662 2080 2062'
+	option proto 'tcp'
+	option target 'ACCEPT'
+
+config rule 'xunleiwanudpports'
+	option name 'xunlei wan accept udp port 4661 3027 888 666 2037 2061 2048 2066'
+	option src 'wan'
+	option dest_port '4661 3027 888 666 2037 2061 2048 2066'
+	option proto 'udp'
+	option target 'ACCEPT'
+
+config rule 'xunleiN_TCPports'
+    option name 'xunlei_port_limit_localhost 9000'
+    option src '*'
+    option dest_port '9000'
+    option proto 'tcp'
+    option target 'REJECT'
+
+config rule 'guest_8999'
+	option name 'Hello wifi 8999'
+	option src 'guest'
+	option proto 'tcp'
+	option dest_port '8999'
+	option target 'ACCEPT'
+
+config rule 'guest_8300'
+	option name 'Hello wifi 8300'
+	option src 'guest'
+	option proto 'tcp'
+	option dest_port '8300'
+	option target 'ACCEPT'
+
+config rule 'guest_7080'
+	option name 'Hello wifi 7080'
+	option src 'guest'
+	option proto 'tcp'
+	option dest_port '7080'
+	option target 'ACCEPT'
+
+config zone 'ready_zone'
+        option name 'ready'
+        list network 'ready'
+        option input 'DROP'
+        option forward 'DROP'
+        option output 'DROP'
+
+config rule 'ready_dhcp'
+        option name 'DHCP for ready'
+        option src 'ready'
+        option src_port '67-68'
+        option dest_port '67-68'
+        option proto 'udp'
+        option target 'ACCEPT'
+
+config rule 'ready_dhcp_out'
+        option name 'DHCP for ready'
+        option dest 'ready'
+        option src_port '67-68'
+        option dest_port '67-68'
+        option proto 'udp'
+        option target 'ACCEPT'
+
+config rule 'ready_minet_in'
+       option name 'minet ready'
+       option src 'ready'
+       option dest_port '786'
+       option proto 'tcp'
+       option target 'ACCEPT'
+
+config rule 'ready_minet_out'
+       option name 'minet ready'
+       option src 'ready'
+       option src_port '786'
+       option proto 'tcp'
+       option target 'ACCEPT'
+
+config redirect 'nxdomain'
+       option name 'nxdomain'
+       option src 'lan'
+       option src_dport '80'
+       option src_dip '198.51.100.9' # rfc5735
+       option dest_port '8190'
+       option proto 'tcp'
+       option target DNAT
+
+config rule 'ptdownload'
+       option name 'ingress port for PT download'
+       option src 'wan'
+       option dest_port '51413'
+       option proto 'tcpudp'
+       option target 'ACCEPT'

@@ -1,0 +1,16 @@
+#!/bin/sh /etc/rc.common
+
+START=11
+
+SERVICE_DAEMONIZE=1
+SERVICE_WRITE_PID=1
+
+start() {
+    echo -1000 > /proc/$$/oom_score_adj
+    renice -n-10 -p $$
+    service_start /sbin/ubusd
+}
+
+stop() {
+	service_stop /sbin/ubusd
+}

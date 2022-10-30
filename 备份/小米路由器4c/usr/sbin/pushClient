@@ -1,0 +1,4 @@
+#!/bin/sh 
+
+/usr/bin/matool --method notify --params "$1"
+

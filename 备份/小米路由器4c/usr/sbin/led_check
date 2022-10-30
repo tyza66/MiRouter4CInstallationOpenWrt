@@ -1,0 +1,9 @@
+#!/bin/sh
+# Turn off led if configured
+
+blue_led_off() {
+	gpio 3 1
+}
+
+led=`uci get xiaoqiang.common.BLUE_LED 2&>/dev/null`
+[ "$led" = "0" ] && blue_led_off

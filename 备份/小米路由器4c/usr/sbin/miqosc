@@ -1,0 +1,56 @@
+#!/usr/bin/lua
+
+
+local bit=  require "bit"
+local px =  require "Posix"
+local uci=  require 'uci'
+local io=   require 'io'
+local json= require 'json'
+
+local miqos=require 'miqos'
+
+px.openlog("miqos","np",LOG_USER)
+
+function logger(loglevel,msg)
+    px.syslog(loglevel,msg)
+end
+
+
+function print_r(root,ind)
+    local indent="    " .. ind
+
+    for k,v in pairs(root) do
+            if(type(v) == "table") then
+                print(indent .. k .. " = {")
+                print_r(v,indent)
+                print(indent .. "}")
+            elseif(type(v) == "boolean") then
+                local tmp = 'false'
+                if v then tmp = 'true' end
+                logger(3, indent .. k .. '=' .. tmp)
+            else
+                print(indent .. k .. "=" .. v)
+            end
+    end
+
+end
+
+function main()
+    local data=''
+    for i,v in ipairs(arg) do
+        data = data .. ' ' .. v
+    end
+
+    local str=miqos.cmd(data)
+    if str then
+        print("{")
+        print_r(str,"")
+        print("}")
+    else
+        print('No data.')
+    end
+end
+
+main()
+
+

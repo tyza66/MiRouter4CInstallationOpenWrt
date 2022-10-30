@@ -1,0 +1,128 @@
+#!/bin/sh
+
+usage () {
+    echo "set redirect rule for revproxy"
+    echo "$0 create [rule_set_name] [src_dport] [dest_port] - create redirect rule"
+    echo "$0 add [rule_set_name] [domain] - redirect access to dest_port"
+    echo "$0 adddone [rule_set_name] - finish add rule"
+    echo "$0 delete [rule_set_name] - delete rule"
+    echo "$0 reload [rule_set_name] - redo apply rule"
+    exit 1
+}
+
+export LOADER='/lib/firewall/revproxy.loader'
+
+
+reload_redirect() {
+    . /lib/functions.sh
+    local rule_set="$1_proxy"
+    local ipset_name="$1_set"
+    # create ipset
+    ipset -q flush "$ipset_name"
+    ipset -exist create "$ipset_name" hash:ip
+    local ipset_file="/tmp/etc/dnsmasq.d/$ipset_name.conf"
+
+    # config dnsmasq
+    config_load revproxy
+    config_get src_dname $rule_set src_dname
+    for dname in $src_dname; do
+	echo "ipset=/$dname/$ipset_name"
+    done > $ipset_file
+
+    # add firewall rule
+    /etc/init.d/firewall reload
+    # restart dnsmasq if it is running already
+    pidof 'dnsmasq' &> /dev/null && {
+	/etc/init.d/dnsmasq restart
+    }
+}
+
+# rule_set src_dport dest_port
+create_redirect() {
+    local rule_set="$1_proxy"
+    local ipset_name="$1_set"
+    shift
+    local src_dport="$1"
+    shift
+    local dest_port="$1"
+    [ -f '/etc/config/revproxy' ] || touch /etc/config/revproxy
+    uci -q batch <<EOF > /dev/null
+del revproxy.$rule_set
+set revproxy.$rule_set=domain_dest
+set revproxy.$rule_set.src_dport=$src_dport
+set revproxy.$rule_set.dest_port=$dest_port
+set revproxy.$rule_set.ipset=$ipset_name
+set revproxy.$rule_set.enabled=0
+commit revproxy
+EOF
+    uci -q batch <<EOF > /dev/null
+set firewall.revproxy=include
+set firewall.revproxy.path=$LOADER
+set firewall.revproxy.reload=1
+set firewall.revproxy.enabled=1
+commit firewall
+EOF
+}
+
+del_redirect() {
+    rule_set="$1_proxy"
+    uci -q delete revproxy.$rule_set
+    uci commit revproxy
+    # clean ipset
+    local ipset_name="$1_set"
+    ipset -q flush $ipset_name
+    # remove dnsmasq conf
+    local ipset_file="/tmp/etc/dnsmasq.d/$ipset_name.conf"
+    rm -f $ipset_file
+    # restart dnsmasq if it is running already
+    pidof 'dnsmasq' &> /dev/null && {
+	/etc/init.d/dnsmasq restart
+    }
+}
+
+# rule_set src_dip
+add_redirect() {
+    rule_set="$1_proxy"
+    uci -q add_list revproxy.$rule_set.src_dname="$2"
+}
+
+add_redirect_done() {
+    rule_set="$1_proxy"
+    uci -q set revproxy.$rule_set.enabled=1
+    uci commit revproxy
+}
+
+case "$1" in
+    enable)
+	shift
+	enable_redirect "$1"
+    ;;
+    disable)
+	shift
+	disable_redirect "$1"
+    ;;
+    create)
+	shift
+	create_redirect "$@"
+	;;
+    add)
+	shift
+	add_redirect "$@"
+    ;;
+    delete)
+	shift
+	del_redirect "$1"
+	;;
+    reload)
+	shift
+	reload_redirect "$1"
+	;;
+    adddone)
+	shift
+	add_redirect_done "$@"
+	;;
+    *)
+	usage
+    ;;
+esac
+

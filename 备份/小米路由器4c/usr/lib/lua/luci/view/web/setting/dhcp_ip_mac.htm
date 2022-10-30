@@ -1,0 +1,208 @@
+<%
+--[[
+    Info    DHCP的静态IP分配
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local XQLanWanUtil = require("xiaoqiang.util.XQLanWanUtil")
+local lan = XQLanWanUtil.getLanWanInfo("lan")
+local lanip = lan["ipv4"][1]["ip"]
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/ipmacband.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-dhcp-ipmacband">
+            <div class="hd">
+                <h3><%:DHCP静态IP分配%></h3>
+            </div>
+            <div class="bd">
+                <h4><%:已绑定的设备列表：%></h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th width="30"></th>
+                            <th><%:设备名称%></th>
+                            <th><%:IP地址%></th>
+                            <th><%:MAC地址%></th>
+                            <th width="150" class="center"><%:操作%></th>
+                        </tr>
+                    </thead>
+                    <tbody id="bandlist">
+                        <tr>
+                            <td class="center" colspan="5"><%:查询中...%></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="ft">
+                <button type="button" class="btn btn-primary btn-m" id="addlist" style="margin-right: 20px;"><span><%:添加%></span></button>
+                <button type="button" class="btn btn-primary btn-m" id="dellist" style="display:none;"><span><%:解绑选中%></span></button>
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<script type="tmpl/html" id="tplbandlist">
+{if($bandlist.length > 0)}
+{for(var i=0; i<$bandlist.length; i++)}
+<tr>
+    <td class="center"><input type="checkbox" class="bandmac" name="mac" value="{$bandlist[i].mac}"></td>
+    <td>{$bandlist[i].dname}</td>
+    <td>{$bandlist[i].ip}</td>
+    <td>{$bandlist[i].mac}</td>
+    <td class="center"><button type="button" class="btn btn-dft btn-s btn-unband" data-mac="{$bandlist[i].mac}"><span><%:解除绑定%></span></button></td>
+</tr>
+{/for}
+{else}
+<tr>
+    <td colspan="5" class="center"><%:没有设置信息%></td>
+</tr>
+{/if}
+</script>
+<script type="tmpl/html" id="tpldevitem">
+<tr data-idx="{$idx}">
+    <td class="form-item"><input name="dname{$idx}" class="ipt-text dname" reqMsg="<%:设备名称%>" datatype="text" maxLength="50"><em class="t"></em></td>
+    <td class="form-item">{$ipprefix}<input name="ip{$idx}" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="n-3" minValue="1" maxValue="254" style="width:30px"><em class="t"></em></td>
+    <td class="form-item"><input name="mac{$idx}" class="ipt-text mac" reqMsg="<%:MAC地址%>" datatype="macaddr"><em class="t"></em></td>
+    <td class="center"><a href="#" class="btn btn-dft btn-del-item btn-s" href="#"><span><%:移除%></span></a></td>
+</tr>
+</script>
+<script type="tmpl/html" id="tpldevlist">
+<form action="#" name="addbandlist" id="addbandlist" class="form-bandlist form-table">
+    <table class="table">
+        <thead>
+            <tr>
+                <th><%:设备名称%></th>
+                <th><%:IP地址%></th>
+                <th><%:MAC地址%></th>
+                <th class="center"><%:操作%></th>
+            </tr>
+        </thead>
+        <tbody id="banditems">
+        {if($devlist.length > 0)}
+            {for(var i=0; i<$devlist.length; i++)}
+            <tr data-idx="{js print(i)}">
+                <td class="form-item"><input value="{$devlist[i].dname}" name="dname{js print(i)}" class="ipt-text dname" reqMsg="<%:设备名称%>" datatype="text" maxLength="50"><em class="t"></em></td>
+                <td class="form-item">{$ipprefix}<input value="{$devlist[i].ip}" name="ip{js print(i)}" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="n-3" minValue="1" maxValue="254" style="width:30px" maxlength="3"><em class="t"></em></td>
+                <td class="form-item"><input value="{$devlist[i].mac}" name="mac{js print(i)}" class="ipt-text mac" reqMsg="<%:MAC地址%>" datatype="macaddr"><em class="t"></em></td>
+                <td class="center"><a href="#" class="btn btn-dft btn-del-item btn-s" href="#"><span><%:移除%></span></a></td>
+            </tr>
+            {/for}
+        {else}
+            <tr data-idx="0">
+                <td class="form-item"><input name="dname0" class="ipt-text dname" reqMsg="<%:设备名称%>" datatype="text" maxLength="50"><em class="t"></em></td>
+                <td class="form-item">{$ipprefix}<input name="ip0" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="n-3" minValue="1" maxValue="254" style="width:30px" maxlength="3"><em class="t"></em></td>
+                <td class="form-item"><input name="mac0" class="ipt-text mac" reqMsg="<%:MAC地址%>" datatype="macaddr"><em class="t"></em></td>
+                <td class="center"><a href="#" class="btn btn-dft btn-del-item btn-s" href="#"><span><%:移除%></span></a></td>
+            </tr>
+        {/if}
+        </tbody>
+    </table>
+    <div class="btns">
+        <p><a href="#" id="addoneitem" class="btn btn-dft btn-m" href="#"><span><%:增加一项%></span></a></p>
+        <p><button id="submitbandlist" class="btn btn-primary btn-m" type="submit"><span><%:一键绑定%></button></span></p>
+    </div>
+</form>
+</script>
+<%include("web/inc/g.js")%>
+<script>
+var ModelDhcpband = (function(){
+    var lanIP = '<%=lanip%>',
+        ipprefix = (function(ip){
+            var arr = ip.split('.');
+            arr.pop();
+            return arr.join('.') + '.';
+        })(lanIP),
+        currentList = {},
+        // get repeat set
+        getRepeat = function( data ){
+            data = data || [];
+            var repeat = [];
+            var _currentList = $.extend( {}, currentList);
+            for (var i = 0; i < data.length; i++) {
+                var v = data[i];
+                if ( typeof( _currentList[v] ) == 'undefined' ) {
+                    _currentList[v] = 1;
+                } else {
+                    repeat.push(v);
+                }
+            }
+            return repeat;
+        },
+        getList = function( callback ){
+            $.getJSON('<%=luci.dispatcher.build_url("api", "xqnetwork","macbind_info")%>',{},function(rsp){
+                if ( rsp.code != 0 ) {
+                    return;
+                }
+                callback( rsp );
+            });
+        },
+        randerBandlist = function( rsp ){
+            var tpl = $( '#tplbandlist' ).html(),
+                container = $( '#bandlist' ),
+                bandlistdata = rsp.list,
+                tpldata = [],
+                mac, ip, dname;
+            currentList = {};
+            if ( bandlistdata.length > 0 ) {
+                for (var i = 0; i < bandlistdata.length; i++) {
+                    mac = bandlistdata[i].mac.toUpperCase();
+                    ip = bandlistdata[i].ip;
+                    dname = StringH.encode4Html( bandlistdata[i].name );
+                    tpldata.push({
+                        dname: dname,
+                        ip: ip,
+                        mac: mac
+                    });
+                    currentList[ip] = 1;
+                }
+            }
+            container.html( tpl.tmpl( {bandlist: tpldata} ) );
+        },
+        randerDevlist = function( rsp ){
+            var tpl = $( '#tpldevlist' ).html(),
+                devlistdata = rsp.devicelist,
+                tpldata = [],
+                randerDom,
+                mac, ip, dname, tag;
+            if ( devlistdata.length > 0 ) {
+                for (var i = 0; i < devlistdata.length; i++) {
+                    mac = devlistdata[i].mac.toUpperCase();
+                    ip = devlistdata[i].ip;
+                    iplast = (function( ip ){
+                        var arr = ip.split('.');
+                        return arr[arr.length - 1];
+                    })( ip );
+                    dname = StringH.encode4HtmlValue( devlistdata[i].name );
+                    tag = devlistdata[i].tag;
+                    if ( tag != 2 ) {
+                        tpldata.push({
+                            dname: dname,
+                            ip: iplast,
+                            mac: mac
+                        });
+                    }
+                }
+            }
+            randerDom = tpl.tmpl( {
+                devlist: tpldata,
+                ipprefix: ipprefix
+            } );
+            $.dialog({
+                title: '<%:绑定设备%>',
+                content: randerDom,
+                lock: true,
+                width: 828,
+                padding: '30px'
+            });
+            $.pub( 'done', {id: '#addlist'} );
+        },
+        serializeForm = function( form ){
+            var ips = $( '.ip', form ),
+                dnames = $( '.dna

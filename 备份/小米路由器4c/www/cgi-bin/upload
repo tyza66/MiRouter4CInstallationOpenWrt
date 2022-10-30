@@ -1,0 +1,246 @@
+#!/usr/bin/lua
+
+local ltn12 = require("luci.ltn12")
+local sys = require("luci.sys")
+local fs = require("luci.fs")
+local sauth = require("luci.sauth")
+local log = require("xiaoqiang.XQLog")
+local XQConfigs = require("xiaoqiang.common.XQConfigs")
+
+function httpWrite(body)
+    io.write("Status: 200 OK\r\n")
+    io.write("\r\n")
+    io.write(tostring(body or ""))
+    io.flush()
+    io.close()
+end
+
+function uploadSucceedResponse(savename)
+    local LuciJson = require("cjson")
+    local body = {}
+    body["code"] = 0
+    body["savename"] = savename
+    body["msg"] = ""
+    body = LuciJson.encode(body)
+    httpWrite(body)
+end
+
+function tunnelRequestDatacenter(payload)
+    local LuciJson = require("cjson")
+    local LuciUtil = require("luci.util")
+    local XQCryptoUtil = require("xiaoqiang.util.XQCryptoUtil")
+    payload = LuciJson.encode(payload)
+    payload = XQCryptoUtil.binaryBase64Enc(payload)
+    local cmd = XQConfigs.THRIFT_TUNNEL_TO_DATACENTER % payload
+    local result = LuciUtil.exec(cmd)
+    httpWrite(result)
+end
+
+function backupUploadFile(path, modifytime, filename, backuptype, id, relativepath, devicename, backupcount)
+    local payload = {}
+    payload["api"] = 53
+    payload["path"] = path
+    payload["modifyTime"] = modifytime
+    payload["filename"] = filename
+    payload["backupType"] = backuptype
+    payload["id"] = id
+    payload["relativePath"] = relativepath
+    payload["deviceName"] = devicename
+    payload["backupCount"] = backupcount
+    tunnelRequestDatacenter(payload)
+end
+
+function setThumbnailPathToDB(hash, thumbnailPath)
+    local payload = {}
+	payload["api"] = 68
+	payload["hash"] = hash
+	payload["thumbnailPath"] = thumbnailPath
+	tunnelRequestDatacenter(payload)
+end
+
+function setTransferedFileToDB(from, to, path, name)
+    local payload = {}
+    payload["api"] = 88
+    payload["devicefrom"] = from
+    payload["deviceto"] = to
+    payload["realpath"] = path
+    payload["filename"] = name
+    tunnelRequestDatacenter(payload)
+end
+
+function limitsource(handle, limit)
+    limit = limit or 0
+    local BLOCKSIZE = ltn12.BLOCKSIZE
+
+    return function()
+        if limit < 1 then
+            handle:close()
+            return nil
+        else
+            local read = (limit > BLOCKSIZE) and BLOCKSIZE or limit
+            limit = limit - read
+
+            local chunk = handle:read(read)
+            if not chunk then handle:close() end
+            return chunk
+        end
+    end
+end
+
+function urldecode_params(url, tbl)
+    local params = tbl or { }
+
+    if url:find("?") then
+        url = url:gsub("^.+%?([^?]+)", "%1")
+    end
+
+    for pair in url:gmatch("[^&;]+") do
+
+        -- find key and value
+        local key = urldecode(pair:match("^([^=]+)"))
+        local val = urldecode(pair:match("^[^=]+=(.+)$"))
+
+        -- store
+        if type(key) == "string" and key:len() > 0 then
+            if type(val) ~= "string" then val = "" end
+
+            if not params[key] then
+                params[key] = val
+            elseif type(params[key]) ~= "table" then
+                params[key] = {params[key], val}
+            else
+                table.insert(params[key], val)
+            end
+        end
+    end
+
+    return params
+end
+
+function urldecode(str, no_plus)
+    local function __chrdec(hex)
+        return string.char(tonumber(hex, 16))
+    end
+
+    if type(str) == "string" then
+        if not no_plus then
+            str = str:gsub("+", " ")
+        end
+
+        str = str:gsub("%%([a-fA-F0-9][a-fA-F0-9])", __chrdec)
+    end
+
+    return str
+end
+
+function initval(tbl, key)
+    if tbl[key] == nil then
+        tbl[key] = ""
+    elseif type(tbl[key]) == "string" then
+        --tbl[key] = {tbl[key], ""}
+        tbl[key] = ""
+    else
+        table.insert(tbl[key], "")
+    end
+end
+
+function appendval(tbl, key, chunk)
+    if type(tbl[key]) == "table" then
+        tbl[key][#tbl[key]] = tbl[key][#tbl[key]] .. chunk
+    else
+        tbl[key] = tbl[key] .. chunk
+    end
+end
+
+function parse_message_body(src, msg)
+    if msg and msg.env.CONTENT_TYPE then
+        msg.mime_boundary = msg.env.CONTENT_TYPE:match("^multipart/form%-data; boundary=(.+)$")
+    end
+
+    if not msg.mime_boundary then
+        return nil, "Invalid Content-Type found"
+    end
+
+    local tlen   = 0
+    local inhdr  = false
+    local field  = nil
+    local store  = nil
+    local lchunk = nil
+
+    local function parse_headers(chunk, field)
+        local stat
+        repeat
+            chunk, stat = chunk:gsub(
+                "^([A-Z][A-Za-z0-9%-_]+): +([^\r\n]+)\r\n",
+                function(k,v)
+                    field.headers[k] = v
+                    return ""
+                end
+            )
+        until stat == 0
+
+        chunk, stat = chunk:gsub("^\r\n", "")
+
+        -- End of headers
+        if stat > 0 then
+            if field.headers["Content-Disposition"] then
+                if field.headers["Content-Disposition"]:match("^form%-data; ") then
+                    field.name = field.headers["Content-Disposition"]:match('name="(.-)"')
+                end
+            end
+
+            if field.name then
+                initval(msg.params, field.name)
+
+                store = function(hdr, buf, eof)
+                    appendval(msg.params, field.name, buf)
+                end
+            else
+                store = nil
+            end
+
+            return chunk, true
+        end
+
+        return chunk, false
+    end
+
+    local function snk(chunk)
+        tlen = tlen + (chunk and #chunk or 0)
+
+        if msg.env.CONTENT_LENGTH and tlen > tonumber(msg.env.CONTENT_LENGTH) + 2 then
+            return nil, "Message body size exceeds Content-Length"
+        end
+
+        if chunk and not lchunk then
+            lchunk = "\r\n" .. chunk
+        elseif lchunk then
+            local data = lchunk .. (chunk or "")
+            local spos, epos, found
+
+            repeat
+                spos, epos = data:find("\r\n--" .. msg.mime_boundary .. "\r\n", 1, true)
+
+                if not spos then
+                    spos, epos = data:find("\r\n--" .. msg.mime_boundary .. "--\r\n", 1, true)
+                end
+
+                if spos then
+                    local predata = data:sub(1, spos - 1)
+
+                    if inhdr then
+                        predata, eof = parse_headers(predata, field)
+
+                        if not eof then
+                            return nil, "Invalid MIME section header"
+                        elseif not field.name then
+                            return nil, "Invalid Content-Disposition header"
+                        end
+                    end
+
+                    if store then
+                        store(field, predata, true)
+                    end
+
+                    field = {headers = { }}
+                    found = fou

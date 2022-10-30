@@ -1,0 +1,243 @@
+#!/bin/sh /etc/rc.common
+
+#this script will run by /etc/init.d/rcS after all rc script.
+START=50
+#STOP=99
+
+#
+#reboot if REBOOTFLAGFILE set to REBOOT=1, by another script
+REBOOTFLAGFILE='/tmp/needreboot.stat'
+
+#/etc/init.d/rcS will save all /etc/rc.d/S* exitcode into this file
+RCSTATFILE='/tmp/rc.timing'
+
+SKIPLIST='boot_check'
+
+# messageagent was removed temporary
+KEYSRVLIST='boot dnsmasq network sysapihttpd'
+
+elog(){
+	tmsg="$@"
+	logger -p local0.warning -t boot_check "boot_check[${$}]: $tmsg"
+	echo "`date` boot_check[${$}]: $tmsg" >> /dev/console
+}
+
+failed_flag() {
+	local system_current=`nvram get flag_boot_rootfs`
+
+	if [ $system_current -ge 0 -a $system_current -le 1 ]; then
+		nvram set flag_try_sys$((system_current+1))_failed=1
+		nvram set flag_ota_reboot=0
+		nvram commit
+	fi
+}
+
+# check ntp status to make sure system time is synchronized successfully
+ntp_status_check() {
+	ntpid=$(ps | grep "/usr/sbin/ntpsetclock" | grep -v "grep /usr/sbin/ntpsetclock" | awk '{print $1}' 2>/dev/null)
+	if [ -n $ntpid ]; then
+		for i in `seq 10`; do
+			NTPSTATUS=$(cut -d, -f1 "/tmp/ntp.status" 2>/dev/null)
+			if [ "$NTPSTATUS" = "ok" ]; then
+				break
+			fi
+			sleep 3
+		done
+	else
+		/usr/sbin/ntpsetclock now once
+	fi
+}
+
+# check whether wifi boot is failed
+WIFI_LOG_FILES='mt76xx2.sh.log mt76xx5.sh.log'
+wifi_boot_check() {
+	elog "Check wifi boot logs to figure out which raido boot failed"
+	failcnt=0
+	for logfile in $WIFI_LOG_FILES
+	do
+		WIFI_LOG_FILE="/tmp/$logfile"
+		if [ -s $WIFI_LOG_FILE ]; then
+			radio=`head -n 1 $WIFI_LOG_FILE`
+			enable=`cat $WIFI_LOG_FILE | grep "enable"`
+			disable=`cat $WIFI_LOG_FILE | grep "disable"`
+			done=`cat $WIFI_LOG_FILE | grep "done"`
+			if [ -z "$enable" -a -z "$disable"]; then
+				let failcnt=$failcnt+1
+				logger "stat_points_none radio_boot_failed=$radio|unknown"
+			elif [ -n "$enable" -a -z "$done" ]; then
+				let failcnt=$failcnt+1
+				logger "stat_points_none radio_boot_failed=$radio|up"
+			elif [ -n "$disable" -a -z "$done" ]; then
+				let failcnt=$failcnt+1
+				logger "stat_points_none radio_boot_failed=$radio|down"
+			fi
+		fi
+	done
+
+	if [ $failcnt -ne 0 ]; then
+		ntp_status_check
+		[ -f /usr/sbin/StatPoints ] && timeout -t 30 /usr/sbin/StatPoints
+	fi
+}
+
+start() {
+	#
+	#check /etc/rc.d/S* exitcode
+	#
+	errcnt=0
+	wifibootcheck=0
+	touch /tmp/$$.bootcheck.log
+	cat $RCSTATFILE 2>/dev/null | grep 'EXITCODE=' | grep -v 'EXITCODE=0;' > /tmp/$$.bootcheck.log
+	while read oneline
+	do
+		#EXITCODE=0;ESP=0;LIMIT=10;CMD=/etc/rc.d/S99datacenter;ARG=boot;
+		match=0
+		for onesrv in $SKIPLIST
+		do
+			echo "$oneline" | grep -q "[0-9]\{1,100\}$onesrv;" && match=1&&break
+		done
+		test $match -ne 0 && continue
+
+		match=0
+		for onesrv in $KEYSRVLIST
+		do
+			echo "$oneline" | grep -q "[0-9]\{1,100\}$onesrv;" && match=1&&break
+		done
+		echo "$oneline" | grep -q "[0-9]\{1,100\}network;" && wifibootcheck=1
+		if [ $match -ne 0 ]
+			then
+			let errcnt=$errcnt+1
+			elog "ERROR: KEY SERVICE FAILED: $oneline"
+		else
+			logger -p local0.warning -t boot_check "WARNING: SERVICE FAILED: $oneline"
+		fi
+	done </tmp/$$.bootcheck.log
+
+	ft_mode=`cat /proc/xiaoqiang/ft_mode`
+	ft_ret=0
+	if [ $errcnt -ne 0 ]
+		then
+		#
+		elog "ERROR: $errcnt KEY SERVICE FAILED."
+		elog "Try switch system...."
+		#
+
+                # save log to crash partition
+		cd /tmp
+		gzip messages
+		mtd_crash_log -f messages.gz
+
+		ft_ret=1
+		if [ $ft_mode -ne 1 ]
+		then
+			if [ $wifibootcheck -eq 1 ]; then
+				wifi_boot_check
+			fi
+			failed_flag
+			reboot
+			exit -1
+		fi
+	fi
+
+	# 检查 wifi是否正常
+	wl1_count=`cat /proc/net/dev | grep wl1 | wc -l`
+	if [ $wl1_count -eq 1 ]; then
+		elog "INFO: Wireless OK"
+	else
+		elog "INFO: reboot times $try because of no wireless available."
+		logger "stat_points_none radio_boot_failed=2.4G|insmod"
+
+		interface_info=`cat /proc/net/dev | awk '{print $1}'`
+		elog "interface_info: $interface_info"
+
+		wl1_info=`iwpriv wl1 e2p 0`
+		elog "wl1_info: $wl1_info"
+
+		mod_info=`lsmod`
+		elog "mod_info: $mod_info"
+
+		mt7628_info=`ls -l /etc/Wireless/mt7628/`
+		elog "mt7628_info: $mt7628_info"
+
+		mt7628_dat=`cat /etc/Wireless/mt7628/mt7628.dat`
+		elog "mt7628_dat: $mt7628_dat"
+
+		uci2dat_pid=`pidof uci2dat`
+		if [ -n "$uci2dat_pid" ]
+		then
+			uci2dat_fd=`ls -l /proc/$uci2dat_pid/fd/`
+			elog "uci2dat_fd: $uci2dat_fd"
+		fi
+
+
+		ft_ret=2
+
+		if [ $ft_mode -ne 1 ]
+		then
+			ntp_status_check
+			[ -f /usr/sbin/StatPoints ] && timeout -t 30 /usr/sbin/StatPoints
+			nvram set bootcheck_wl1=1
+			failed_flag
+			reboot
+			exit -1
+		fi
+	fi
+
+	# 检查eth0 是否存在
+	cat /proc/net/dev | grep -q "eth0" > /dev/null
+	[ $? -ne 0 ] && {
+		elog "INFO: no network available /dev/$hdd"
+                # save log to crash partition
+		cd /tmp
+		gzip messages
+		mtd_crash_log -f messages.gz
+
+		ft_ret=3
+		if [ $ft_mode -ne 1 ]
+		then
+			failed_flag
+			reboot
+			exit -1
+		fi
+	}
+
+	{
+		date_time=`date +%s`
+		boot_reason=`nvram get boot_reason`
+		if [ "$boot_reason" != "" ]
+		then
+			logger "stat_points_none boot_reason=${boot_reason}|${date_time}"
+		fi
+
+		reboot_reason=`nvram get reboot_reason`
+		if [ "$reboot_reason" != "" ]
+		then
+			logger "stat_points_none reboot_reason=${reboot_reason}|${date_time}"
+		fi
+		
+		nvram unset boot_reason
+		nvram unset reboot_reason
+		nvram commit
+	}
+
+	if [ "$ft_mode" = "1" ]
+	then
+		if [ "$ft_ret" != "0" ]
+		then
+			elog "INFO: boot_check failed $ft_ret"
+			dmesg > /data/usr/log/dmesg.log
+			#blue and yellow led is set, no red led
+			gpio 2 1
+			gpio 3 1
+			gpio 1 0
+		else
+			echo 3 > /proc/xiaoqiang/boot_status
+		fi
+	else
+		echo 3 > /proc/xiaoqiang/boot_status
+	fi
+}
+
+stop() {
+	echo "stop"
+}

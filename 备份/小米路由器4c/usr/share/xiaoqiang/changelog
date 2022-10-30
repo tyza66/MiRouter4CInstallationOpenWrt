@@ -1,0 +1,22 @@
+MiWiFi ROM Daily build v0.2.45
+Changes:
+guoyu: WIFI改为WiFi Mac改为MAC
+guoyu: 检测到系统升级后，led闪蓝灯
+YinJiaJin: 修复Makefile，恢复为tab
+YinJiaJin: 新增内核配置文件维护工具kconfigdiff.sh
+尹家进: Merge "修正开启UPnP后，Windows显示为OpenWRT Router"
+刘铁俊: 增加44号接口，根据rootPath检查文件同步状态
+Zhang Hong Qiang: 修正开启UPnP后，Windows显示为OpenWRT Router
+刘铁俊: modify unit test
+guoyu: web首页替换轻量级的系统检测接口
+张建斌: 升级block页面，新开浏览器不断刷新问题修复
+张建斌: 软关机功能
+李政: Merge "添加数据库，多线程处理和test case"
+zhangfan: 快盘：文件夹内部有同步出错文件时，文件夹同步状态不准确问题
+guoyu: 公测时首页进不去的Bug
+程亮: 添加数据库，多线程处理和test case
+zhangfan: 快盘：调整查询一组文件（夹）同步状态的接口
+guoyu: 修复统计脚本没生成ui文件情况下lua报错的问题
+guoyu: 删除log_collection脚本中不再收集的信息
+张建斌: bug fixed
+黄秋志: Merge "commit修改push判断ssid字符串"

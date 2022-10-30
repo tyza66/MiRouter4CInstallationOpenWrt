@@ -1,0 +1,11 @@
+Type Device      Function
+0800 eth0.2   packet_rcv
+0800          ip_rcv
+0011          llc_rcv
+8863          pppoe_disc_rcv
+0004          llc_rcv
+8864          pppoe_rcv
+0806 br-lan   packet_rcv
+0806 br-lan   packet_rcv
+0806          arp_rcv
+86dd          ipv6_rcv

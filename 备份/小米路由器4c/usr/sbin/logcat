@@ -1,0 +1,129 @@
+#!/bin/sh
+#
+. /lib/lib.scripthelper.sh
+#
+syslogfile=$(ps w|grep '/sbin/syslogd' | grep -v grep | awk -F'-O ' '{print $2}'|awk '{print $1}')
+if [ -z "$syslogfile" ]
+	then
+	ps w | grep -q '/usr/sbin/syslog-ng'
+	if [ $? -eq 0 ]
+		then
+		syslogfile=$(cat /etc/syslog-ng.conf 2>/dev/null | grep -A 1 'destination d_messages' | grep 'file('| tr '(");' ' '|awk '{print $2}')
+	fi
+fi
+if [ -z "$syslogfile" ]
+	then
+	echo "syslog type is share memory or syslog/-ng config changed."
+	if [ "$1" = '-f' ]
+		then
+		/sbin/logread 2>/dev/null | tail -n 2000
+	fi
+	/sbin/logread $@ 2>/dev/null
+	exit $?
+fi
+killtail(){
+	kill $TAILLERPID 2>/dev/null
+	kill $PIPERPID 2>/dev/null
+	exit $?
+}
+if [ "$1" = 'logtail' ]
+	then
+	trap killtail SIGTERM SIGINT
+	mppid="$2"
+	cutline="$3"
+	let mppid=$mppid+1-1 2>/dev/null
+	if [ $? -ne 0 ]
+		then
+		echo "ERROR: invalid parent pid: $mppid"
+		exit 1
+	fi
+	if [ $mppid -le 5 ]
+		then
+		echo "ERROR: too small parent pid: $mppid <= 5"
+		exit 1
+	fi
+	echo "INFO: $$ running, parent pid $mppid , pipe $syslogfile ..."
+	#
+	#2013/08/09 11:46:35 [notice] 2084#0: signal 22 (SIGIO) received
+	#
+	cat <<EOF>/tmp/logcatpipelog.$mppid.sh
+#!/bin/sh
+exec tail -f $syslogfile
+EOF
+	chmod +x /tmp/logcatpipelog.$mppid.sh
+	test -z "$cutline" && cutline=500
+	while [ ! -s $syslogfile ]
+	do
+		sleep 1
+	done
+	tail -n $cutline $syslogfile
+	echo "#================ LOGFILE: $syslogfile ===================================#"
+	/tmp/logcatpipelog.$mppid.sh 2>&1 &
+	PIPERPID=$!
+	while [ : ]
+	do
+		kill -0 $PIPERPID 2>/dev/null
+		if [ $? -ne 0 ]
+			then
+			echo "pipelogger $PIPERPID exited."
+			break
+		fi
+		kill -0 $mppid 2>/dev/null
+		if [ $? -ne 0 ]
+			then
+			echo "parent $mppid exited."
+			break
+		fi
+		sleep 3
+	done
+	exit 0
+fi
+if [ "$(argmatch cut)" = '1' ]
+	then
+	rm -f ${syslogfile}.*
+	echo "----- cut by logcat -------" > $syslogfile
+	if [ $? -ne 0 ]
+	then
+		echo "ERROR: cut failed."
+	fi
+	date >> $syslogfile
+fi
+if [ "$(argmatch reboot)" = '1' ]
+	then
+	echo "----- reboot by logcat -------" > $syslogfile
+	date >> $syslogfile
+	reboot
+	exit 0
+fi
+if [ "$1" != '-f' ]
+	then
+	cat $syslogfile | tail -n 2000 2>/dev/null
+	exit $?
+fi
+$0 logtail $$ &
+TAILLERPID=$!
+trap killtail SIGTERM SIGINT EXIT
+logsize=$(ls -al "$syslogfile" 2>/dev/null | awk '{print $5}')
+oldlogsize=$logsize
+while [ : ]
+do
+	if [ ! -f $syslogfile ]
+		then
+		sleep 3
+		continue
+	fi
+	logsize=$(ls -al "$syslogfile" 2>/dev/null | awk '{print $5}')
+	test -z "$logsize" && logsize=0
+	test -z "$oldlogsize" && oldlogsize=0
+	if [ $logsize -lt $oldlogsize ]
+		then
+		echo "INFO: $syslogfile rewind: $oldlogsize => $logsize"
+		kill $TAILLERPID 2>/dev/null
+		sleep 3
+		$0 logtail $$ &
+		TAILLERPID=$!
+		oldlogsize=$logsize
+	fi
+	sleep 3
+done
+#

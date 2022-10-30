@@ -1,0 +1,189 @@
+#!/bin/sh /etc/rc.common
+
+#this script will run by /etc/init.d/rcS after all rc script.
+
+do_config_backup() {
+	# In case /data get trashed, backup config after a successful boot
+	local rec_mtd_name="cfg_bak"
+	local init_flag
+
+	init_flag=`uci get xiaoqiang.common.INITTED`
+	[ "$init_flag" = "YES" ] || return 0
+
+	rec_mtd=$(find_mtd_part "$rec_mtd_name")
+	[ -z "$rec_mtd" ] && return 0
+
+	tar -czf /tmp/cfg_bak.tgz /etc/config > /dev/null 2>&1
+	mtd erase $rec_mtd_name
+	mtd write /tmp/cfg_bak.tgz $rec_mtd_name
+	rm -f /tmp/cfg_bak.tgz
+}
+
+elog(){
+	tmsg="$@"
+	logger -p local0.warning -t boot_check "boot_check[${$}]: $tmsg"
+	echo "`date` boot_check[${$}]: $tmsg" >> /dev/console
+}
+
+upload_upgradeinfo() {
+	logger stat_points_none upgrade=end
+	# check ntp status to make sure system time is synchronized successfully
+	ntpid=$(ps | grep "/usr/sbin/ntpsetclock" | grep -v "grep /usr/sbin/ntpsetclock" | awk '{print $1}' 2>/dev/null)
+	if [ -n $ntpid ]; then
+		for i in `seq 10`; do
+			NTPSTATUS=`cut -d, -f1 "/tmp/ntp.status" 2>/dev/null`
+			if [ "$NTPSTATUS" = "ok" ];then
+				[ -f /usr/sbin/StatPoints ] && /usr/sbin/StatPoints
+				return 0
+			fi
+			sleep 2
+		done
+	else
+		/usr/sbin/ntpsetclock now once
+	fi
+
+	[ -f /usr/sbin/StatPoints ] && /usr/sbin/StatPoints
+	logger stat_points_none upgrade=end
+}
+
+start() {
+	# 备份上网信息
+	uci_wan_proto=`uci get network.wan.proto`
+	nvram set nv_wan_type=$uci_wan_proto
+	if [ "$uci_wan_proto" = "pppoe" ]; then
+		uci_pppoe_name=`uci get network.wan.username`
+		uci_pppoe_pwd=`uci get network.wan.password`
+		nvram set nv_pppoe_name=$uci_pppoe_name
+		nvram set nv_pppoe_pwd=$uci_pppoe_pwd
+	fi
+	if [ "$uci_wan_proto" = "static" ]; then
+		uci_wan_ip=`uci get network.wan.ipaddr`
+		uci_wan_gateway=`uci get network.wan.gateway`
+		uci_wan_dns=`uci get network.wan.dns`
+		uci_wan_netmask=`uci get network.wan.netmask`
+		uci_wan_dns1=`echo "$uci_wan_dns" | awk -F ' ' '{print $1}'`
+		uci_wan_dns2=`echo "$uci_wan_dns" | awk -F ' ' '{print $2}'`
+		nvram set nv_wan_ip=$uci_wan_ip
+		nvram set nv_wan_gateway=$uci_wan_gateway
+		nvram set nv_wan_dns1=$uci_wan_dns1
+		nvram set nv_wan_dns2=$uci_wan_dns2
+		nvram set nv_wan_netmask=$uci_wan_netmask
+	fi
+
+	# 备份Messaging信息
+	device_id=`uci get messaging.deviceInfo.DEVICE_ID`
+	channel_secret=`uci get messaging.deviceInfo.CHANNEL_SECRET`
+	nvram set nv_device_id=$device_id
+	nvram set nv_channel_secret=$channel_secret
+
+	# 如果刚升级的系统，需要发送push
+	upgrad_flag=`nvram get flag_upgrade_push`
+	# flag 1 is need push
+	if [ "$upgrad_flag" = "1" ] ; then
+		nvram set flag_show_upgrade_info=1
+		nvram unset flag_upgrade_push
+		nvram commit
+		feedPush "{\"type\":3}"
+		/usr/sbin/vasinfo_fw.sh post_ota
+	fi
+
+	#升级上来的rom没设置过privacy的默认开启
+        #flg_privacy=`uci get xiaoqiang.common.PRIVACY 2>/dev/null`
+        #if [ -z "$flg_privacy" ]; then
+        #        uci set xiaoqiang.common.PRIVACY=1
+        #        uci commit xiaoqiang
+        #fi
+
+	boot_status="$(cat /proc/xiaoqiang/boot_status 2>/dev/null)"
+	if [ "$boot_status" = "3" ] ;then
+		# boot finished
+		gpio 1 1
+		gpio 2 1
+
+		# blue led is okay
+		gpio 3 0
+
+		md5=`md5sum /dev/mtd4  | awk '{print $1}'`
+		nvram set normal_firmware_md5=$md5
+		nvram unset bootcheck_keysrv
+		nvram unset bootcheck_wl1
+		nvram unset bootcheck_eth0
+		ROMVERSION=`uci get /usr/share/xiaoqiang/xiaoqiang_version.version.ROM`
+		nvram set os1_version=$ROMVERSION
+		nvram set bootcheck_fails=0
+
+		nvram commit
+	fi
+
+
+	#check merge reboot require
+	cat $REBOOTFLAGFILE 2>/dev/null | grep -q '^REBOOT=1'
+	if [ $? -eq 0 ]
+		then
+		#TODO: fixme
+		elog "INFO: reboot for previous script required. --- no reboot, feature disabled."
+		#sleep 1
+		#reboot
+	fi
+
+	#stat_points
+	flg_stat=`nvram get gel_restart_hard_count`
+	if [ "$flg_stat" = "1" ]; then
+		logger stat_points_none gel_restart_hard_count=1
+		nvram unset gel_restart_hard_count
+        fi
+
+
+        flg_init_pwd=`nvram get flag_init_root_pwd`
+        if [ "$flg_init_pwd" = "1" ]; then
+                init_pwd=`mkxqimage -I`
+                (echo $init_pwd; sleep 1; echo $init_pwd) | passwd root
+                nvram unset flag_init_root_pwd
+        fi
+
+	nvram set flag_ota_reboot=0
+	nvram set flag_boot_success=1
+	nvram set flag_try_sys1_failed=0
+	nvram set flag_try_sys2_failed=0
+
+	curr_os=`cat /proc/mtd | grep rootfs -B 1 | head -n 1 | awk '{print $NF}' | cut -b 2-4`
+	if [ "$curr_os" = "OS1" ]; then
+		nvram set flag_last_success=0
+	else
+
+		nvram set flag_last_success=1
+	fi
+
+	flg_ramfs=`nvram get flag_ramfs_upstat`
+	if [ "$flg_ramfs" = "1" ]; then
+		nvram unset flag_ramfs_upstat
+	fi
+
+
+	# daemon: monitor reset button status
+	nice -n -5 btnd reset 38 & 2>/dev/null
+
+	# upload log.zip
+	if [ -f "/data/usr/log/log.zip" ]; then
+		elog "upload org log.zip"
+		/usr/sbin/logupload.lua 0 3 0 & 2>/dev/null
+	fi
+
+	if [ -f "/data/usr/log/sysmonitor.log.gz" ]; then
+		elog "upload sysmonitor.log.gz"
+		/usr/sbin/logupload.lua 0 3 0 "/data/usr/log/sysmonitor.log.gz" & 2>/dev/null
+	fi
+
+	nvram commit
+	do_config_backup
+	if [ "$upgrad_flag" = "1" ] ; then
+		elog "upload ugrade info"
+		upload_upgradeinfo
+	fi
+
+	elog "Booting up finished."
+}
+
+stop() {
+	echo "stop"
+}

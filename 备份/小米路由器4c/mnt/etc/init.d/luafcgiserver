@@ -1,0 +1,38 @@
+#!/bin/sh /etc/rc.common
+
+#merge into /etc/init.d/sysapihttpd, delete pending
+
+#luafastcgiserver will start/stop by /etc/init.d/sysapihttpd
+#START=45
+#STOP=50
+
+#export command line for /usr/sbin/supervisord
+export PROCLINE="/usr/bin/spawn-fcgi -s /tmp/fcgi-cgi.sock -u root -U nobody -C 5 -F 5 -- /usr/bin/fcgi-cgi -c 1024"
+export PROCFLAG="/usr/bin/fcgi-cgi -c 1024"
+export PROCNUM='5'
+export EXTRA_HELP="  status  Status the service"
+export EXTRA_COMMANDS="status"
+
+stop() {
+  /usr/sbin/supervisord stop
+  return $?
+}
+start() {
+  /usr/sbin/supervisord start
+  return $?
+}
+restart() {
+  stop
+  sleep 1
+  start
+  return $?
+}
+shutdown() {
+  stop
+  return $?
+}
+status() {
+  /usr/sbin/supervisord status
+  return $?
+}
+#

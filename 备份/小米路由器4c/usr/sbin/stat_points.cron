@@ -1,0 +1,69 @@
+#!/bin/sh
+#
+# use crond to run?
+#
+. /lib/lib.scripthelper.sh
+#
+#run in daemon
+#procdaemon mute
+THRESHOLD=70 # disk use in percent
+FILE_SIZE=8 # kilobytes
+FILE_SIZE_MAX=256 # kilobytes. max stat file size, if exceed stat file will be truncated.
+SLEEP_TIME=300 # check every 5 mins
+MAX_COUNT=12 # 5*12 will be 60 mins, one hour
+
+#prevent stat points from using too much memory
+limit_stat_size() {
+	for i in /tmp/stat_points_*.log
+	do
+		fsize=`du "$i" | cut -f 1`
+		if [ "$fsize" -gt "$FILE_SIZE_MAX" ]; then
+			old_nr=`wc -l "$i"`
+			head -n 100 "$i" > /tmp/.stat_point_tmp
+			mv /tmp/.stat_point_tmp "$i"
+			logger -s -p 3 -t "stat_point" ""$old_nr" too large. truncate to 100"
+		fi
+	done
+}
+
+do_statpoints() {
+     limit_stat_size
+     ST=$(cat /proc/uptime | cut -d' ' -f1 | cut -d'.' -f1)
+     /usr/sbin/StatPoints
+     ET=$(cat /proc/uptime | cut -d' ' -f1 | cut -d'.' -f1)
+     return $((ET-ST))
+}
+
+counter=0
+while true
+do
+    sleep $SLEEP_TIME
+
+    # and if one of stat_points_*.log file lager than FILE_SIZE
+    for i in /tmp/stat_points_*.log
+    do
+	fs=$(du "$i")
+	s=$(echo "$fs" | cut -f 1)
+	[ $s -gt $FILE_SIZE ] && {
+	    counter=0
+	    do_statpoints
+	    ts=$?
+	    name=$(echo "$fs" | cut -f 2)
+	    logger stat_points_none log_up_file="$name,$ts"
+	    break # all stat points file have been uploaded.
+	}
+    done
+
+    # like used to be, upload every one hour
+    [ $counter -ge $MAX_COUNT ] && {
+	counter=0
+	sleeptm=`cat /dev/urandom |head -c 30|md5sum | tr -d [0a-zA-Z- ]  2>/dev/null`
+	sleeptm=$((${sleeptm:0:8}%300))
+	sleep $sleeptm
+	do_statpoints
+	ts=$?
+	logger stat_points_none log_up_file="hourly,$ts"
+    }
+    let counter+=1
+done
+

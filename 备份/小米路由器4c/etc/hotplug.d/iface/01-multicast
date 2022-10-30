@@ -1,0 +1,9 @@
+#!/bin/sh
+
+[ ifup = "$ACTION" ] && [ "$INTERFACE" = "lan" ] && {
+    net_mode=$(uci -q get xiaoqiang.common.NETMODE)
+    if [ $net_mode == "lanapmode" ]; then
+	#  This would forward any multicast packets to all ports allowing your TV to find your DLNA capable NAS with movies
+	echo "1" > /sys/devices/virtual/net/br-lan/bridge/multicast_snooping
+    fi
+}

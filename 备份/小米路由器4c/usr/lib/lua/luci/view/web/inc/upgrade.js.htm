@@ -1,0 +1,90 @@
+<script>
+var Modelupgrade = (function(){
+    var checkOffline = false,
+        offline = false,
+        dlgwait,
+        isoffline = function() {
+            checkOffline = true;
+            pingRouter( function(){}, function(){
+                offline = true;
+            });
+        },
+        showPercent = function( num ) {
+            $( '#persent' ).html( num );
+            $( '#persentWidth' ).css( 'width', num + "%" );
+        },
+        flashCheck = function() {
+            var timer = window.setInterval(function(){
+                var requestURL = '<%=luci.dispatcher.build_url("api", "xqsystem","upgrade_status")%>';
+                var xhr = $.getJSON( requestURL, {}, function( rsp ){
+                    if ( rsp.code == 0 ) {
+                        var status = rsp.status;
+                        if ( status == 3 ) {
+                            $( '#btnCancel' ).show();
+                        } else {
+                            $( '#btnCancel' ).hide();
+                        }
+                        if (/(3|5|11|12)/.test(status)) {
+                            showPercent( rsp.percent );
+                        }
+                        //flash fail
+                        if( /(7|8|9|10)/.test( status ) ){
+                            window.clearInterval( timer );
+                            flashfail( status );
+                        }
+                        // flash rom ing
+                        if ( /(5|12)/.test( status ) ) {
+                            showPercent( 100 );
+                            if ( checkOffline ) {
+                                return;
+                            }
+                            flashstart();
+                            isoffline();
+                        }
+                        // flash success
+                        if ( status == 11 || offline ) {
+                            window.clearInterval(timer);
+                            flashdone();
+                        }
+                    }
+                });
+
+                xhr.fail(function(){
+                    if ( checkOffline ) {
+                        if ( offline ) {
+                            window.clearInterval(timer);
+                            flashdone();
+                        }
+                        return;
+                    }
+                    isoffline();
+                    $( '#flashstatus' ).html( '正在安装固件， <span style="color:red">请不要切断路由器电源</span>' );
+                });
+
+            }, 1500);
+        },
+        flashstart = function(){
+            $( '#flashstatus' ).html( '正在安装固件， <span style="color:red">请不要切断路由器电源</span>' );
+        },
+        flashfail = function( status ){
+            var msg = {
+                7: '没有磁盘空间',
+                8: '下载失败',
+                9: '升级包校验失败',
+                10: '刷写失败'
+            };
+            $( '#flashstatus' ).html( msg[status] + ',固件安装失败,请刷新重试' );
+            alert( '升级失败，请重试' );
+            window.setTimeout('self.location.reload(1)', 2 * 1000);
+        },
+        flashdone = function(){
+            rebootWait({
+                action : '升级路由器固件',
+                refresh : true
+            });
+        };
+    return {
+        flashCheck: flashCheck
+    }
+}());
+</script>

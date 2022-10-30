@@ -1,0 +1,313 @@
+#!/usr/bin/lua
+
+local io = require "io"
+local socket = require "socket"
+local px = require "Posix"
+local devs
+local g_interval = 1
+local printf=print
+local t_now,t_last,t_interval=nil,nil,nil
+local batch_mode = false
+
+local DISP={
+    prefix='\027[',
+    def={
+        nothing='0m',
+        highlight='1m',
+        bottomline='4m',
+        flash='5m',
+        reverse='7m',
+        show='8m',
+        fg={
+            black='30m',
+            red='31m',
+            green='32m',
+            yellow='33m',
+            blue='34m',
+            purple='35m',
+            qin_se='36m',
+            white='37m',
+        },
+        bg={
+            black='40m',
+            red='41m',
+            green='42m',
+            yellow='43m',
+            blue='44m',
+            purple='45m',
+            qin_se='46m',
+            white='47m',
+        },
+        move_up='%dA',    -- %d should be filled with line number
+        move_down='%dB',
+        move_right='%dC',
+        move_left='%dD',
+        move_x_y='%d;%dH',    --- move to pos(x,y)
+        move_1_1='0;0H',        -- move to pos(1,1)
+        clear='2J', --clear screen
+        hide_cursor='25l',
+        show_cursor='25h',
+    },
+}
+
+function run_cmd(cmd)
+    if not cmd or cmd == "" then
+        return ""
+    end
+    local t=io.popen(cmd)
+    local a=t:read("*line")
+    t:close()
+    return a
+end
+
+function read_interfaces(dir)
+    local tbl={}
+    local wan=run_cmd("uci -q get network.wan.ifname")
+    if dir == "u" then
+        table.insert(tbl,wan)
+    elseif dir == "d" then
+        tbl={"ifb0","br-lan"}
+    else
+        tbl={"ifb0","br-lan"}
+        table.insert(tbl,wan)
+    end
+    return tbl
+end
+
+--split string with chars '$p'
+string.split = function(s, p)
+    local rt= {}
+    string.gsub(s, '[^'..p..']+', function(w) table.insert(rt, w) end )
+    return rt
+end
+
+function display(p)
+    if batch_mode then
+        return '';
+    end
+    local v=string.split(p,'.')
+    if DISP.def[p] then
+        return DISP.prefix .. DISP.def[p];
+    elseif DISP.def[v[1]][v[2]] then
+        return DISP.prefix .. DISP.def['highlight'] .. DISP.prefix .. DISP.def[v[1]][v[2]];
+    else
+        return '';
+    end
+end
+
+local sep_line=display('nothing') .. "------------------------------------------------";
+local logger=print
+local qostype=nil
+local function print_r(root,ind)
+    local indent="    " .. ind
+    for k,v in pairs(root or {}) do
+            if(type(v) == "table") then
+                    logger(3,indent .. k .. " = {")
+                    print_r(v,indent)
+                    logger(3, indent .. "}")
+            elseif(type(v) == "boolean") then
+                local tmp = 'false'
+                if v then tmp = 'true' end
+                logger(3, indent .. k .. '=' .. tmp)
+            else
+                logger(3, indent .. k .. "=" .. v)
+            end
+    end
+end
+
+function update_clock()
+    t_last=t_now
+    t_now=socket.gettime()
+    if t_now and t_last then
+        t_interval = t_now - t_last
+    end
+end
+
+function get_counters(devs)
+    local tbl = {}
+    local status = 'on'
+    update_clock()
+    local cmd_tbl = {}
+    for _,dev in pairs(devs) do
+        local cmd = "tc -s -d class show dev " .. dev .. "\n"
+        local pp = io.popen(cmd)
+        cmd_tbl[dev] = pp:read("*a")
+        pp:close()
+
+        local cmd = "tc -d -s qdisc show dev " .. dev .."|grep root -A 1 " .. "\n"
+        local pp = io.popen(cmd)
+        cmd_tbl[dev] = cmd_tbl[dev] .. pp:read("*a")
+        pp:close()
+    end
+
+    for dev,strs in pairs(cmd_tbl) do
+        local _lines = string.split(strs,'\n')
+        local _no=1
+        local id
+        while _no <= #_lines do
+            local tokens=string.split(_lines[_no],' ')
+            _no = _no + 1
+            local _idx = 1
+            while _idx <= #tokens do
+                if tokens[_idx] == 'class' or tokens[_idx] == 'qdisc' then
+                    _idx = _idx + 1
+                    id=nil
+
+                    -- class-type
+                    if tokens[_idx] == 'htb' then
+                        if qostype ~= 'htb' then    -- clear screen if qos type changed.
+                            printf(display('clear'))
+                            qostype = 'htb'
+                        end
+                    elseif tokens[_idx] == 'prio' then
+                        if qostype ~= 'prio' then
+                            printf(display('clear'))
+                            qostype = 'prio'
+                        end
+                    else
+                        break;
+                    end
+                    _idx = _idx +1
+
+                    -- class-id
+                    id = tokens[_idx]
+                    tbl[id]={}
+                    tbl[id].dev = dev
+                    _idx = _idx + 1
+
+                elseif not id then
+                    break;
+                elseif tokens[_idx] == 'root' then
+                    _idx = _idx + 1
+                elseif tokens[_idx] == 'Sent' then
+                    tbl[id]['sent']=tokens[_idx+1]
+                    tbl[id]['sent_pkt']=tokens[_idx+3]
+                    _idx = _idx + 5        -- skip and jump to 'dropped'
+                elseif tokens[_idx] == 'rate' then
+                    if tbl[id].rate then   -- second touch 'rate'
+                        _idx = _idx + 3    -- skip and jump to 'backlog'
+                    else
+                        tbl[id]['rate'] = conv(get_num(tokens[_idx+1]))
+                        _idx = _idx + 2
+                    end
+                elseif tokens[_idx] == 'ceil' then
+                    tbl[id]['ceil'] = conv(get_num(tokens[_idx+1]))
+                    _idx = _idx + 2
+                elseif tokens[_idx] == '(dropped' then
+                    tbl[id].dropped = tokens[_idx+1]
+                    _idx = _idx + 2
+                elseif tokens[_idx] == 'direct_packets_stat' then
+                    tbl[id].direct_packets_stat = tokens[_idx+1]
+                    _idx = _idx + 2
+                else
+                    tbl[id][tokens[_idx]]=tokens[_idx+1]
+                    _idx = _idx + 2
+                end
+            end
+        end
+
+    end
+
+    return tbl
+end
+
+function print_header()
+    printf(sep_line)
+    if verbose then
+        printf (string.format("%s %6s %7s %3s %6s %9s %9s %8s %8s %11s %9s %4s %7s %6s",
+            display('fg.yellow'),"dev","classid","pri","quan","rate","ceil(dir)","burst","cburst","sent","speed","drop","backlog","parent"))
+    else
+        printf (string.format("%s %6s %7s %9s %9s %9s",display('fg.yellow'),"dev","classid","rate","ceil(dir)","speed"))
+    end
+end
+
+function print_ender()
+    printf(sep_line)
+end
+
+function sleep(n)
+    socket.select(nil, nil, n)
+end
+
+function get_num(nr)
+   local _,_,num,prefix = string.find(nr,"(%d+)(%S+)")
+   if prefix == "Kbit" then return num*1024/8
+   elseif prefix == "Mbit" then return num*1024*1024/8
+   else return num/8
+   end
+end
+
+function conv(n)
+    --prefix = "B"
+    n = n / 1024
+    prefix = "KB"
+    if n > 1024 then
+        n = n/1024
+        prefix = 'MB'
+    end
+    n = string.format("%.2f%s",n,prefix)
+    return n
+end
+
+function main()
+    verbose = false
+    batch_mode = false
+    if arg[1] then
+        if arg[1] == '-f' then
+            verbose = true
+            devs = read_interfaces()
+        elseif arg[1] == '-u' then
+            devs = read_interfaces("u")
+        elseif arg[1] == '-d' then
+            devs = read_interfaces("d")
+        elseif arg[1] == '-fu' then
+            verbose = true
+            devs = read_interfaces("u")
+        elseif arg[1] == '-fd' then
+            verbose = true
+            devs = read_interfaces("d")
+        elseif arg[1] == '-b' then   -- batch print
+            verbose = true
+            batch_mode = true
+            devs = read_interfaces()
+        end
+    else
+        devs = read_interfaces()
+    end
+
+    lastsent = {}
+    if verbose then
+        format = "%s %6s %7s %3s %6s %9s %9s %8s %8s %11s %9s %4s %7s %6s"
+    else
+        format = "%s %6s %7s %9s %9s %9s"
+    end
+    --io.stdout:setvbuf('line')
+    --printf (display('clear'))
+    --printf (display('move_1_1'))
+    --printf(display('hide_cursor'))    -- hide cursor
+    local clear_count=0
+    local display_count=3
+    while display_count > 0 do
+        if batch_mode then  -- just for qos dump
+            display_count = display_count -1
+        end
+        res = get_counters(devs)
+        if clear_count > 3 then
+            clear_count = 0
+            os.execute('clear')
+        end
+        clear_count = clear_count +1
+        printf (display('move_1_1'))  -- move cursor to pos(1,1)
+        print_header()
+        a={}
+        for classid in pairs(res) do
+            table.insert(a,classid)
+        end
+        table.sort(a)
+        output = ''
+        for _,classid in pairs(a) do
+            dev = res[classid]['dev'] or ''
+            direct_packets_stat = res[classid]['direct_packets_stat'] or ''
+            rate = res[classid]['rate'] or ''
+            ceil = res[classid]['ceil'] or direct_packets_stat or ''
+            sent = res[classid]['sent'] o

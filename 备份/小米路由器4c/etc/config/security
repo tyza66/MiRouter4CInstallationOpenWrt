@@ -1,0 +1,4 @@
+config settings 'common'
+    option 'malicious_url_firewall' '0'
+    option 'virus_file_firewall' '0'
+    option 'privacy_protection' '0'

@@ -1,0 +1,95 @@
+#!/bin/sh
+#
+#TODO: move rules to /etc/config/firewall
+#
+export LANG=C
+#
+. /lib/lib.scripthelper.sh
+#
+#VPNINTERFACE=tap1
+#
+checkproclock 30
+if [ $? -ne 0 ]
+	then
+	dlog "INFO: wait 30 seconds, but already running, pid $(getlockedprocpid))"
+	exit 0
+fi
+#
+setproclock
+#
+ctlop="start"
+if [ "$1" = 'start' -o "$1" = 'stop' ]
+	then
+	ctlop="$1"
+fi
+if [ "$1" = 'boot' ]
+	then
+	ctlop="start"
+fi
+#clear exist rules
+clscnt=0
+while [ $clscnt -le 10 ]
+do
+	iptables -D FORWARD -j vpnforward 2>/dev/null
+	iptables -D INPUT -j vpninput 2>/dev/null
+	iptables -D POSTROUTING -t nat -j vpnsnat 2>/dev/null
+
+	iptables -F vpnforward 2>/dev/null
+	iptables -F vpninput 2>/dev/null
+	iptables -F vpnsnat -t nat 2>/dev/null
+
+	iptables -X vpnforward 2>/dev/null
+	iptables -X vpninput 2>/dev/null
+	iptables -X vpnsnat -t nat 2>/dev/null
+
+	let clscnt=$clscnt+1
+done
+if [ "$ctlop" = 'start' ]
+	then
+	if [ ! -s /tmp/vpnclient.env ]
+	then
+		#first load
+		dlog "INFO: traffic.set.firewall, empty /tmp/vpnclient.env."
+		exit 0
+	fi
+
+	. /tmp/vpnclient.env
+
+	if [ -z "$VPNINTERFACE" ]
+		then
+		if [ "$ctlop" = 'stop' ]
+			then
+				dlog "WARNING: $0, VPNINTERFACE no exported."
+				exit 0
+			else
+				dlog "ERROR: $0, VPNINTERFACE no exported."
+				exit 1
+			fi
+	fi
+	iptnewchain "-N vpnforward"
+	iptnewchain "-N vpninput"
+	iptnewchain "-N vpnsnat -t nat"
+	iptexec "iptables -I FORWARD -j vpnforward"
+	iptexec "iptables -I INPUT -j vpninput"
+	iptexec "iptables -I POSTROUTING -t nat -j vpnsnat"
+	iptexec "iptables -A vpnforward -o $VPNINTERFACE -j ACCEPT"
+	iptexec "iptables -A vpnforward -i $VPNINTERFACE -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT"
+	iptexec "iptables -A vpnforward -i $VPNINTERFACE -j DROP"
+	iptexec "iptables -A vpnforward -j RETURN"
+	iptexec "iptables -A vpninput ! -i $VPNINTERFACE -j RETURN"
+	iptexec "iptables -A vpninput -i $VPNINTERFACE -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT"
+	#iptexec "iptables -A vpninput -p udp --dport 67 -j DROP"
+	#iptexec "iptables -A vpninput -p tcp --dport 67 -j DROP"
+	#iptexec "iptables -A vpninput -p udp --dport 68 -j DROP"
+	#iptexec "iptables -A vpninput -p tcp --dport 68 -j DROP"
+	iptexec "iptables -A vpninput -j DROP"
+	iptexec "iptables -A vpnsnat -t nat ! -o $VPNINTERFACE -j RETURN"
+	iptexec "iptables -A vpnsnat -t nat -j MASQUERADE"
+fi
+
+#
+if [ "$2" != 'renew' -a "$1" != 'stop' -a -n "$2" -o "$ctlop" = 'start' ]
+then
+	dlog "INFO: $0, $1, done"
+fi
+#

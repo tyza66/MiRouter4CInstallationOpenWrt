@@ -1,0 +1,93 @@
+#!/bin/sh
+fqdn=$1
+server=$2
+timeout=$3
+
+usage(){
+	echo "USAGE: $0 <fqdn> <serverip> [timeout]"
+}
+
+if [ -z "$fqdn" ]
+then
+	usage
+	exit 1
+fi
+if [ -z "$server" ]
+then
+	usage
+	exit 1
+fi
+if [ -z "$timeout" ]
+then
+	timeout=5
+fi
+let timeout=$timeout+1
+let timeout=$timeout-1
+if [ $timeout -eq 0 ]
+then
+	timeout=5
+fi
+
+doid=`echo $fqdn|md5sum|awk '{print $1}'`
+dofile="/tmp/`basename $0`.$$.$doid.tmp"
+
+touch $dofile
+nslookup $fqdn $server > $dofile 2>&1 &
+lookpid=$!
+
+#Server:	8.8.8.8
+#Address 1: 8.8.8.8 google-public-dns-a.google.com
+
+#Name:	  www.google.com
+#Address 1: 2404:6800:4005:807::1013
+#Address 2: 173.194.127.241 hkg03s16-in-f17.1e100.net
+#Address 3: 173.194.127.240 hkg03s16-in-f16.1e100.net
+#Address 4: 173.194.127.242 hkg03s16-in-f18.1e100.net
+#Address 5: 173.194.127.244 hkg03s16-in-f20.1e100.net
+#Address 6: 173.194.127.243 hkg03s16-in-f19.1e100.net
+
+wcnt=0
+addlist=''
+while [ $wcnt -le $timeout ]
+do
+	addstart=0
+	while read oneline
+	do
+		if [ $addstart -eq 0 ]
+		then
+			addstart=`echo $oneline | grep -i 'Name:' | grep -c "$fqdn"`
+			continue
+		fi
+		oneaddr=`echo $oneline | grep -i 'Address ' | awk '{print $3}'`
+		if [ -z "$oneaddr" ]
+		then
+			continue
+		fi
+		if [ -z "$addlist" ]
+		then
+			addlist="$oneaddr"
+		else
+			addlist="$addlist $oneaddr"
+		fi
+	done < $dofile
+	if [ $addstart -ne 0 ]
+	then
+		break
+	fi
+	kill -0 $lookpid 2>/dev/null
+	if [ $? -ne 0 ]
+	then
+		#it exited
+		break
+	fi
+	let wcnt=$wcnt+1
+	sleep 1
+done
+
+kill $lookpid 2>/dev/null
+rm -f $dofile
+
+echo "$fqdn/$server/$addlist"
+
+#
+

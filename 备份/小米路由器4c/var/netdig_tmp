@@ -1,0 +1,9 @@
+PING www.csdn.net (60.205.172.2): 56 data bytes
+64 bytes from 60.205.172.2: seq=0 ttl=33 time=22.840 ms
+64 bytes from 60.205.172.2: seq=1 ttl=33 time=23.100 ms
+64 bytes from 60.205.172.2: seq=2 ttl=33 time=22.960 ms
+64 bytes from 60.205.172.2: seq=3 ttl=33 time=22.740 ms
+
+--- www.csdn.net ping statistics ---
+4 packets transmitted, 4 packets received, 0% packet loss
+round-trip min/avg/max = 22.740/22.910/23.100 ms

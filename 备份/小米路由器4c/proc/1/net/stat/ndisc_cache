@@ -1,0 +1,2 @@
+entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs unresolved_discards
+0000000b  00000018 0000000d 00000001  0000009a 00000091  00000000  00000000 00000000  00000331 00000000 00000000

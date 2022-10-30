@@ -1,0 +1,6 @@
+config ipv6 settings
+    list if_off "wan"
+    list if_off  "ipv6"
+    option enabled "0"
+
+

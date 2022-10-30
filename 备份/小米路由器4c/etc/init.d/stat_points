@@ -1,0 +1,32 @@
+#!/bin/sh /etc/rc.common
+#
+# This script is used for internal application traffic control
+#
+
+START=99
+STOP=89
+
+start() {
+    /usr/sbin/syslog-ng.helper &
+    tail -F /tmp/stat_points_rom.log /tmp/stat_points_web.log | grep "stat_points_instant" | /usr/sbin/stat_points.helper &
+    /usr/sbin/stat_points.cron &
+
+    return 0
+}
+
+
+stop() {
+	/usr/sbin/syslog_sync.sh
+
+	return 0
+}
+
+restart() {
+    killall syslog-ng.helper
+    killall stat_points.cron
+    sleep 1
+    pidof syslog-ng.helper >/dev/null && killall -9 syslog-ng.helper
+    pidof stat_points.cron >/dev/null && killall -9 stat_points.cron
+    sleep 1
+    start
+}

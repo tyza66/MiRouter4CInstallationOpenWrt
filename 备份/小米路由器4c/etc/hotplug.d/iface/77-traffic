@@ -1,0 +1,31 @@
+#!/bin/sh
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "lan" ] && {
+    if [ -x /usr/sbin/ipaccount ]; then
+        ipaddr=$(uci get network.lan.ipaddr)
+        netmask=$(uci get network.lan.netmask)
+        /usr/sbin/ipaccount -S -n lan -N "$ipaddr/$netmask"
+    fi
+    . /lib/functions/network.sh
+    network_get_device ifname lan
+    ubus call trafficd  setlan '{"dev":"'$ifname'"}'
+
+}
+
+[ "$INTERFACE" = "guest" ] && {
+    if [ -x /usr/sbin/ipaccount ]; then
+        ipaddr=$(uci get network.guest.ipaddr)
+        netmask=$(uci get network.guest.netmask)
+        [ "$ACTION" = "ifup" ] && /usr/sbin/ipaccount -S -n guest -N "$ipaddr/$netmask"
+        [ "$ACTION" = "ifdown" ] && /usr/sbin/ipaccount -D -n guest
+    fi
+}
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] && {
+    . /lib/functions/network.sh
+    network_get_device ifname wan
+    ubus call trafficd  setwan '{"dev":"'$ifname'"}'
+}
+
+[ "$ACTION" = "ifup" ] && {
+    /usr/sbin/ipaccount -r
+}

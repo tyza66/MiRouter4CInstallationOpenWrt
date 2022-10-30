@@ -1,0 +1,28 @@
+#!/usr/bin/env lua
+local bit = require("bit")
+
+function fix_subnet(subnet)
+	local _, _, i1, i2, i3, i4, len = string.find(arg[1], '^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)\/([0-9]+)$')
+	if i1 then
+		len = tonumber(len)
+		i1 = tonumber(i1)
+		i2 = tonumber(i2)
+		i3 = tonumber(i3)
+		i4 = tonumber(i4)
+		if len >= 32 then
+			return string.format("%d.%d.%d.%d/%d", i1, i2, i3, i4, 32)
+		elseif len >= 24 then
+			return string.format("%d.%d.%d.%d/%d", i1, i2, i3, bit.lshift(bit.rshift(i4, 32 - len), 32 - len), len)
+		elseif len >= 16 then
+			return string.format("%d.%d.%d.%d/%d", i1, i2, bit.lshift(bit.rshift(i3, 24 - len), 24 - len), 0, len)
+		elseif len >= 8 then
+			return string.format("%d.%d.%d.%d/%d", i1, bit.lshift(bit.rshift(i2, 16 - len), 16 - len), 0, 0, len)
+		else
+			return string.format("%d.%d.%d.%d/%d", bit.lshift(bit.rshift(i1, 8 - len), 8 - len), 0, 0, 0, len)
+		end
+	end
+	return subnet
+end
+
+
+print(fix_subnet(arg[1]))

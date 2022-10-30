@@ -1,0 +1,21 @@
+#!/usr/bin/env lua
+
+local uci = require("luci.model.uci").cursor()
+local crypto = require("xiaoqiang.util.XQCryptoUtil")
+local name = uci:get("network", "wan", "username")
+local password = uci:get("network", "wan", "password")
+
+if name and password then
+  local key = crypto.md5Str(name..password)
+  local value = uci:get_all("xiaoqiang", key)
+  if value then
+    uci:set("xiaoqiang", key, "status", "1")
+  else
+    uci:section("xiaoqiang", key, {
+                  ["username"] = name,
+                  ["password"] = password,
+                  ["status"] = 1
+                })
+  end
+  uci:commit("xiaoqiang")
+end

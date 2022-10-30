@@ -1,0 +1,11 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org 
+
+# In case reboot get stuck
+
+STOP=01
+
+stop() {
+	/bin/sh -c "sleep 120; reboot -f" &
+	return 0
+}

@@ -1,0 +1,11 @@
+#!/bin/sh
+logger -t "${0}-firewall[$$]" "HotPlugEvent: $ACTION of $INTERFACE ($DEVICE)"
+
+[ "$ACTION" = "ifup" ] || exit 0
+
+/etc/init.d/firewall enabled || exit 0
+
+fw3 -q network "$INTERFACE" >/dev/null || exit 0
+
+logger -t firewall "HotPlugEvent: Reloading firewall due to ifup of $INTERFACE ($DEVICE)"
+fw3 -q reload

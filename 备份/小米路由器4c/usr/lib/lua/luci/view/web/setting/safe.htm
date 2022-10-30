@@ -1,0 +1,218 @@
+
+<%
+--[[
+    Info    安全中心
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local wifiUtil = require("xiaoqiang.util.XQWifiUtil")
+local request_uri = luci.http.getenv("REMOTE_URI")
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = luci.sys.net.ip4mac(remote_addr)
+local lanType = wifiUtil.getDeviceWifiIndex(mac)
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/safe.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include( "web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-macfilter" id="modMacfilter" style="display:none;">
+            <div class="hd">
+                <h3><%:无线访问控制%></h3>
+                <div class="switch">
+                    <a data-enable="1" class="btn-switch btn-switch-off" id="macfilterswitch" href="#"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <div class="section" style="display:none;">
+                    <h4><%:控制模式%>：</h4>
+                    <p>
+                        <label for="filtertype1">
+                            <input id="filtertype1" type="radio" name="filtertype" value="0" class="filtertype"> <span><%:黑名单模式（不允许列表中设备访问）%></span>
+                        </label>
+                        <label for="filtertype2">
+                            <input id="filtertype2" type="radio" name="filtertype" value="1" class="filtertype"> <span><%:白名单模式（只允许列表中设备访问）%></span>
+                        </label>
+                    </p>
+                </div>
+                <div class="section" style="display:none;">
+                    <h4 id="typeText"><%:正在检测模式列表...%></h4>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th><%:设备名称%></th>
+                                <th><%:MAC地址%></th>
+                                <th width="80" style="padding-left:21px;"><%:操作%></th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceslist">
+                            <tr>
+                                <td colspan="3"><%:正在查询中...%></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="add-contral">
+                        <a id="btnListAdd" href="#" class="btn btn-dft btn-m"><span><%:从在线列表添加%></span></a><a id="btnSelfAdd" href="#" class="btn btn-dft btn-m"><span><%:手工添加%></span></a>
+                    </div>
+                </div>
+                <div class="form-contral">
+                    <button style="display:none;" id="setWifiMacfilter" class="btn btn-primary btn-l" type="submit"><span><%:保存并生效%></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <%include( "web/inc/password")%>
+
+        <div class="mod-set mod-manage-filter">
+            <div class="hd">
+                <h3><%:管理后台访问控制%></h3>
+                <div class="switch">
+                    <a data-enable="1" class="btn-switch btn-switch-off" id="managefilterswitch" href="#"></a>
+                </div>
+            </div>
+            <div class="bd" id="manageFilterBody">
+                <div class="isoff" style="display:none;">
+                    <p><%:开启白名单功能后，将只允许名单中的设备访问管理后台，每次开启会将本机自动添加至白名单。%></p>
+                </div>
+                <div class="ison" style="display:none;">
+                     <table class="table">
+                        <thead>
+                            <tr>
+                                <th><%:MAC地址白名单%></th>
+                                <th width="80" class="center"><%:操作%></th>
+                            </tr>
+                        </thead>
+                        <tbody id="manageFilterList">
+                        </tbody>
+                    </table>
+                    <div class="btns" style="padding:20px 0;">
+                        <button class="btn btn-primary btn-l" id="manageFilterAdd"><span><%:通过MAC地址添加设备%></span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <%include( "web/inc/footer")%>
+</div>
+<%include( "web/inc/g.js")%>
+<script type="tmpl/html" id="tmplAddSelf">
+    <div class="dialog-selfadd-form-wrap">
+        <form action='<%=luci.dispatcher.build_url("api", "xqnetwork", "manually_add")%>' class="form" name="selfadd" id="selfAdd">
+            <div class="form-item">
+                <label class="k">
+                    <%:名称%>
+                </label>
+                <span class="v">
+<input type="text" id="macname" name="macname" class="ipt-text" reqMsg="<%:名称%>" />
+</span>
+                <em class="t"></em>
+            </div>
+            <div class="form-item">
+                <label class="k">
+                    <%:MAC地址%>
+                </label>
+                <span class="v">
+<input type="text" id="macaddr" name="addr" class="ipt-text" datatype="macaddr" reqMsg="<%:MAC地址%>" />
+</span>
+                <em class="t"></em>
+            </div>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary btn-l" id="selfAddSubmit"><span><%:确定%></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</script>
+<script type="tmpl/html" id="tmplAddList">
+    <div class="dialog-listadd-form-wrap">
+        <form action='<%=luci.dispatcher.build_url("api", "xqnetwork", "edit_device")%>' class="form" name="listAdd" id="listAdd">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><%:设备名称%></th>
+                        <th><%:设备信息%></th>
+                        <th><%:连接时长%></th>
+                        <th width="80"><%:操作%></th>
+                    </tr>
+                </thead>
+                <tbody id="dialogdeviceslist">
+                    <tr>
+                        <td colspan="4"><%:正在查询中...%></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary btn-l" id="listAddSubmit"><span><%:添加%></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</script>
+<script type="tmpl/html" id="tmplAddedDevice">
+    <tr data-mac="{$addr}">
+        <td>{$name}</td>
+        <td>{$addr}</td>
+        <td><a href="#" class="btn btn-dft btn-s del"><span><%:删除%></span></a>
+        </td>
+    </tr>
+</script>
+<script type="tmpl/html" id="tmplOnlineDevice">
+    <tr>
+        <td>{$name}</td>
+        <td>{$ip}
+            <br />{$addr}</td>
+        <td>{$time}</td>
+        <td>
+            <input class="onlinemacinput" type="checkbox" name="nowmac" value="{$addr}" />
+        </td>
+    </tr>
+</script>
+<script>
+    (function () {
+        var listaddDialog;
+        var selfaddDialog;
+        var enableLast;
+        var selfMac = '<%=mac%>'.toUpperCase();
+        var lanType = '<%=lanType%>';
+        var switchbtn = $('#macfilterswitch');
+
+        var getWifiFilterInfo = function (data, callback) {
+            $.getJSON('<%=luci.dispatcher.build_url("api", "xqnetwork", "wifi_macfilter_info")%>', data, function (rsp) {
+                if (rsp.code == 0) {
+                    enableLast = rsp.enable;
+                    callback(rsp);
+                }
+                $('#modMacfilter').show();
+                // else {
+                //     alert(rsp.msg);
+                // }
+            });
+        };
+        var getAddedList = function (res) {
+            var list = res.macfilter;
+            var trarr = [];
+            var tpl = $('#tmplAddedDevice').html();
+            if ($.isArray(list) && list.length > 0) {
+                for (var i = 0, len = list.length; i < len; i++) {
+                    var tr = StringH.tmpl(tpl, {
+                        name: StringH.encode4Html(list[i].name),
+                        addr: list[i].mac
+                    });
+                    trarr.push(tr);
+                }
+                $('#deviceslist').html(trarr.join(''));
+            } else {
+                $('#deviceslist').html('<tr><td colspan="3"><%:还没有设备添加进来%></td></tr>');
+            }
+        };
+        var getOnlineList = function () {
+            var model = $('.filtertype:checked').val();
+            getWifiFilterInfo({model: model}, function (res) {
+                var list = res.list;
+                var trarr = [];
+                var tpl = $('#tmplOnlineDevice').html();
+                if ($.isArray(list) && 

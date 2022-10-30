@@ -1,0 +1,50 @@
+---- devname="mt7628"
+---- datpath="/etc/Wireless/mt7628/mt7628.dat"
+API: init_wifi_cfg()
+init_wifi_cfg(), wifi-device: mt7628
+API: parse_dat(mt7628, /etc/Wireless/mt7628/mt7628.dat)
+  0."CountryRegion=1", <CountryRegion>=<1>
+  1."CountryRegionABand=0", <CountryRegionABand>=<0>
+  2."CountryCode=CN", <CountryCode>=<CN>
+  3."BssidNum=3", <BssidNum>=<3>
+  4."SSID1=Xiaomi_ABAC", <SSID1>=<Xiaomi_ABAC>
+  5."SSID2=miwifi_ready", <SSID2>=<miwifi_ready>
+  6."SSID3=", <SSID3>=<>
+  7."SSID4=", <SSID4>=<>
+  8."WirelessMode=9", <WirelessMode>=<9>
+  9."TxRate=0", <TxRate>=<0>
+ 10."Bsd=0", <Bsd>=<0>
+ 11."Channel=0", <Channel>=<0>
+ 12."BasicRate=15", <BasicRate>=<15>
+ 13."BeaconPeriod=100", <BeaconPeriod>=<100>
+ 14."DtimPeriod=1", <DtimPeriod>=<1>
+ 15."TxPower=100", <TxPower>=<100>
+ 16."PERCENTAGEenable=", <PERCENTAGEenable>=<>
+ 17."EntryLifeCheck=128", <EntryLifeCheck>=<128>
+ 18."ed_th_nonCE=512", <ed_th_nonCE>=<512>
+ 19."ed_chk=0", <ed_chk>=<0>
+ 20."DisableOLBC=0", <DisableOLBC>=<0>
+ 21."BGProtection=0", <BGProtection>=<0>
+ 22."MaxStaNum=0", <MaxStaNum>=<0>
+ 23."TxAntenna=", <TxAntenna>=<>
+ 24."RxAntenna=", <RxAntenna>=<>
+ 25."TxPreamble=0", <TxPreamble>=<0>
+ 26."RTSThreshold=2347", <RTSThreshold>=<2347>
+ 27."FragThreshold=2346", <FragThreshold>=<2346>
+ 28."TxBurst=1", <TxBurst>=<1>
+ 29."PktAggregate=0", <PktAggregate>=<0>
+ 30."TurboRate=0", <TurboRate>=<0>
+ 31."WmmCapable=1", <WmmCapable>=<1>
+ 32."APSDCapable=1", <APSDCapable>=<1>
+ 33."DLSCapable=0", <DLSCapable>=<0>
+ 34."APAifsn=3;7;1;1", <APAifsn>=<3;7;1;1>
+ 35."APCwmin=4;4;3;2", <APCwmin>=<4;4;3;2>
+ 36."APCwmax=6;10;4;3", <APCwmax>=<6;10;4;3>
+ 37."APTxop=0;0;94;47", <APTxop>=<0;0;94;47>
+ 38."APACM=0;0;0;0", <APACM>=<0;0;0;0>
+ 39."BSSAifsn=3;7;2;2", <BSSAifsn>=<3;7;2;2>
+ 40."BSSCwmin=4;4;3;2", <BSSCwmin>=<4;4;3;2>
+ 41."BSSCwmax=10;10;4;3", <BSSCwmax>=<10;10;4;3>
+ 42."BSSTxop=0;0;94;47", <BSSTxop>=<0;0;94;47>
+ 43."BSSACM=0;0;0;0", <BSSACM>=<0;0;0;0>
+ 44."A

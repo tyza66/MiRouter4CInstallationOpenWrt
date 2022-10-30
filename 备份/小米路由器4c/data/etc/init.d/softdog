@@ -1,0 +1,48 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=91
+
+export PROCLINE="watchdog -t 5 -T 120 /dev/watchdog"
+export PROCFLAG="watchdog -t 5 -T 120 /dev/watchdog"
+export OOM_FLAG=0
+
+start() {
+	status
+	if [ $? -eq "0" ]; then
+		return 0
+	fi
+
+	[ -e /dev/watchdog ] || return 0
+
+	/usr/sbin/supervisord start
+	return $?
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+	return $?
+}
+
+shutdown() {
+	stop
+	return $?
+}
+
+stop() {
+	[ -e /dev/watchdog ] || return 0
+
+	if [ -f /usr/bin/nohup ];then
+		nohup /usr/sbin/supervisord stop >/dev/null 2>&1 &
+	else
+		/usr/sbin/supervisord stop >/dev/null 2>&1 &
+	fi
+	return $?
+}
+
+status() {
+	/usr/sbin/supervisord status
+	return $?
+}

@@ -1,0 +1,47 @@
+#!/bin/sh
+killonepid(){
+	local onepid ksig timelimit wcnt
+	onepid=$1
+	ksig=$2
+	if [ -z "$onepid" ]
+	then
+		return 0
+	fi
+	test -z "$ksig" && ksig=15
+	#
+	if [ $onepid -le 100 ]
+	then
+		return 0
+	fi
+	timelimit=5
+	wcnt=0
+	while [ : ]
+	do
+		if [ "$ksig" = '0' ]
+			then
+			kill -${ksig} $onepid 2>/dev/null
+			return $?
+		fi
+		kill -${ksig} $onepid 2>/dev/null
+		test $? -ne 0 && return 0
+		let wcnt=$wcnt+1
+		test $wcnt -gt $timelimit && break
+		sleep 1
+	done
+	kill -9 $onepid 2>/dev/null
+	test $? -eq 0 && return 1
+	return 0
+	#
+}
+pidfile=$1
+if [ -z "$pidfile" ]
+then
+	exit 0
+fi
+if [ ! -s "$pidfile" ]
+then
+	exit 0
+fi
+killonepid "$(cat $pidfile 2>/dev/null)" $2
+exit $?
+#

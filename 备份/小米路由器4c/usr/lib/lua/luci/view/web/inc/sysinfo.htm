@@ -1,0 +1,89 @@
+<%
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+local romChannel = XQSysUtil.getChannel()
+local uci = require("luci.model.uci").cursor()
+local features = require("xiaoqiang.XQFeatures").FEATURES
+%>
+<div class="mod-upgrade">
+    <div class="hd"><h3><%:升级检测%></h3></div>
+    <div class="bd">
+        <h4><%:系统版本%></h4>
+        <p id="upgradeinfo"></p>
+        <p class="hasnewver" style="display:none;"><a href="<%=luci.dispatcher.build_url("web", "syslock")%>?flashtype=download" class="btn btn-primary btn-l" id="btnUpgread"><span><%:立即升级%></span></a></p>
+        <p><a href="#" id="btnUpload" class="btn btn-dft btn-l"><span><%:手动升级%></span></a></p>
+        <div class="logs" style="display:none;">
+            <h4><%:更新日志%></h4>
+            <div id="changelog" style="display:none;">
+                <iframe name="setting" id="changelogUrl" style="width:100%; border:0;background:none;" src="about:blank" frameborder="0" height="500" scrolling="yes"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mod-uploadlog">
+    <div class="hd">
+        <h3><%:上传日志%></h3>
+    </div>
+    <div class="bd">
+        <div style="margin-bottom:15px;"><button type="button" id="btnUploadlog" class="btn btn-primary btn-l"><span><%:上传日志%></span></button></div>
+        <%if features["system"]["downloadlogs"] == "1" then%>
+        <div><button type="button" id="btnDownloadlog" class="btn btn-primary btn-l"><span><%:下载日志%></span></button></div>
+        <%end%>
+    </div>
+</div>
+
+<div class="mod-uploadlog">
+    <div class="hd">
+        <h3><%:恢复出厂设置%></h3>
+    </div>
+    <div class="bd">
+        <button type="button" id="btnReset" class="btn btn-primary btn-l"><span><%:立即恢复%></span></button>
+    </div>
+</div>
+
+<div class="mod-set mod-backupconfig">
+    <div class="hd">
+        <h3><%:备份与恢复%></h3>
+    </div>
+    <div class="bd">
+        <p><%:备份路由器的配置，重新刷机或重置路由器后可以用来恢复。%></p>
+        <div class="btns">
+            <a href="#" id="btnBackupconfig" class="btn btn-dft btn-m"
+            ><span><%:新建备份%></span></a>
+            <a href="#" id="btnUploadconfig" class="btn btn-dft btn-m"><span><%:立即恢复%></span></a>
+        </div>
+    </div>
+</div>
+
+
+<%if romChannel == "release" and features["system"]["i18n"] == "1"  then%>
+<div class="mod-uploadlog">
+    <div class="hd">
+        <h3><%:设置系统语言%></h3>
+    </div>
+    <div class="bd">
+        <div class="clearfix">
+            <div class="form-item-select">
+                <label class="k"><%:系统语言%></label>
+                <span class="v"><select name="lang" id="lang" class="beautify"></select></span>
+            </div>
+        </div>
+    </div>
+</div>
+<%end%>
+
+<div class="mod-set mod-systime">
+    <div class="hd">
+        <h3><%:时间设置%></h3>
+    </div>
+    <div class="bd">
+        <div class="group">
+            <p id="timezoneval"></p>
+            <button type="button" id="btnTimezone" class="btn btn-dft btn-m"><span><%:更改时区%></span></button>
+        </div>
+        <div class="group">
+            <p id="datetiemval"></p>
+            <button type="button" id="btnDatetime" class="btn btn-dft btn-m"><span><%:更改时间%></span></button>
+        </div>
+    </div>
+</div>

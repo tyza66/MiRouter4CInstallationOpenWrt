@@ -1,0 +1,23 @@
+#!/usr/bin/env lua
+local posix = require "Posix"
+local ubus = require "ubus"
+local uci = require "uci"
+
+function exec(cmd)
+	local p = io.popen(cmd)
+	ret = p:read("*all")
+	p:close()
+	return ret
+end
+
+uc = uci.cursor()
+is_ctf = uc:get("misc","quickpass","ctf")
+if is_ctf == "1" then
+	local conn = ubus.connect()
+	local status = conn:call("network.interface", "status", {interface="wan"})
+	local wan = string.format("%s/32", status['ipv4-address'][1].address)
+	status = conn:call("network.interface", "status", {interface="lan"})
+	local lan = string.format("%s/%s", status['ipv4-address'][1].address, status['ipv4-address'][1].mask)
+	exec(string.format("iptables -t mangle -D PREROUTING -s %s -d %s -j SKIPCTF", lan, wan))
+	exec(string.format("iptables -t mangle -A PREROUTING -s %s -d %s -j SKIPCTF", lan, wan))
+end

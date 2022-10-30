@@ -1,0 +1,144 @@
+<%
+--[[
+    Info    路由器外网设置
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = string.upper(luci.sys.net.ip4mac(remote_addr))
+local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/wan.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-wan">
+            <div class="hd">
+                <h3><%:上网信息%></h3>
+                <span id="wanType"><%:正在检测上网连接方式，请稍等...%></span>
+            </div>
+            <div class="bd">
+                <div class="mod-set-wan" id="wanStatus"></div>
+            </div>
+        </div>
+         <div class="mod-set mod-wan">
+            <div class="hd">
+                <h3><%:上网设置%></h3>
+            </div>
+            <div class="bd">
+                <div class="mod-set-wan" id="wanSet">
+                    <div class="tab clearfix">
+                        <div class="form-item-select">
+                            <label class="k"><%:上网方式%></label>
+                            <span class="v">
+                                <select name="wantypeselect" id="wantypeselect" class="beautify">
+                                <option value="0">PPPoE</option>
+                                <option value="1">DHCP</option>
+                                <option value="2"><%:静态IP%></option>
+                                </select>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="tab-con">
+                        <div class="tab-con-item">
+                            <form action="#" name="pppoe" id="pppoe" class="form form-pppoe" autocomplete="off">
+                                <input type="hidden" name="wanType" value="pppoe">
+                                <div class="form-item">
+                                    <label class="k"><%:账号%></label>
+                                    <span class="v"><input type="text" name="pppoeName" class="ipt-text" autocomplete="off" reqMsg="<%:账号%>"></span>
+                                    <em class="t"></em>
+                                </div>
+                                <div class="form-item">
+                                    <label class="k"><%:密码%></label>
+                                    <span class="v">
+                                        <input type="text" name="pppoePwd" class="ipt-text" autocomplete="off" reqMsg="<%:密码%>">
+                                    </span>
+                                    <em class="t"></em>
+                                </div>
+                                <div class="item-more">
+                                    <label><input class="setwanmore" type="radio" name="autoset" value="0" checked="checked"> <span><%:自动配置%></span></label>
+                                    <label><input class="setwanmore" type="radio" name="autoset" value="1"> <span><%:手动配置%></span></label>
+                                </div>
+                                <div class="item-more-group clearfix">
+                                    <div class="form-item">
+                                        <label for="special"><input type="checkbox" name="special" id="special" value="1"> <span><%:特殊拨号%></span></label>
+                                    </div>
+                                    <div class="form-item">
+                                        <label class="k"><%:MTU%></label>
+                                        <span class="v">
+                                            <input type="text" name="mtu" class="ipt-text" value="1480" autocomplete="off" reqMsg="<%:MTU%>" datatype="n" minValue="576" maxValue="1492">
+                                        </span>
+                                        <em class="t"><%:字节（网络正常情况下不建议修改）%></em>
+                                    </div>
+                                    <div class="form-item">
+                                        <label class="k"><%:服务名%></label>
+                                        <span class="v">
+                                            <input type="text" name="service" class="ipt-text" autocomplete="off">
+                                        </span>
+                                        <em class="t"></em>
+                                    </div>
+                                    <div class="form-item">
+                                        <label class="k"><%:DNS1%></label>
+                                        <span class="v">
+                                            <input type="text" name="dns1" class="ipt-text" autocomplete="off" datatype="ipaddr">
+                                        </span>
+                                        <em class="t"></em>
+                                    </div>
+                                    <div class="form-item">
+                                        <label class="k"><%:DNS2%></label>
+                                        <span class="v">
+                                            <input type="text" name="dns2" class="ipt-text" autocomplete="off" datatype="ipaddr">
+                                        </span>
+                                        <em class="t"></em>
+                                    </div>
+                                </div>
+                                <div class="form-contral clearfix">
+                                    <button type="submit" class="btn btn-primary btn-m l hidden"><span><%:应用%></span></button> <a href="#" class="btn btn-dft btn-m r btncancelset hidden"><span><%:取消%></span></a>
+                                </div>
+                            </form>
+                        </div>
+                        <!-- dhcp -->
+                        <div class="tab-con-item">
+                            <form action="#" name="dhcp" id="dhcp" class="form form-dhcp" autocomplete="off">
+                                <input type="hidden" name="wanType" value="dhcp">
+                                <div class="item-more">
+                                    <label><input class="setwanmore" type="radio" name="autoset" value="0" checked="checked"> <span><%:自动配置DNS%></span></label>
+                                    <label><input class="setwanmore" type="radio" name="autoset" value="1"> <span><%:手动配置DNS%></span></label>
+                                </div>
+                                <div class="item-more-group clearfix">
+                                     <div class="form-item">
+                                        <label class="k"><%:DNS1%></label>
+                                        <span class="v">
+                                            <input type="text" name="dns1" class="ipt-text" autocomplete="off" datatype="ipaddr" reqMsg="<%:DNS1%>">
+                                        </span>
+                                        <em class="t"><%:必填%></em>
+                                    </div>
+                                    <div class="form-item">
+                                        <label class="k"><%:DNS2%></label>
+                                        <span class="v">
+                                            <input type="text" name="dns2" class="ipt-text" autocomplete="off" datatype="ipaddr">
+                                        </span>
+                                        <em class="t"></em>
+                                    </div>
+                                </div>
+                                <div class="form-contral clearfix">
+                                    <button type="submit" class="btn btn-primary btn-m l hidden"><span><%:应用%></span></button> <a href="#" class="btn btn-dft btn-m r btncancelset hidden"><span><%:取消%></span></a>
+                                </div>
+                            </form>
+                        </div>
+                        <!-- static ip -->
+                        <div class="tab-con-item">
+                            <form action="#" name="static" id="static" class="form form-static" autocomplete="off" autocomplete="off">
+                                <input type="hidden" name="wanType" value="static">
+                                <div class="form-item">
+                                    <label class="k"><%:IP地址%></label>
+                                    <span class="v">
+                                        <input type="text" name="staticIp" class="ipt-text" autocomplete="off" datatype="ipaddr" reqMsg="<%:IP地址%>">
+                                    </span>
+   

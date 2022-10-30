@@ -1,0 +1,97 @@
+#!/bin/sh
+. /lib/functions/network.sh
+
+dlog() {
+    logger -s -p 6 -t "pppoe-check" "$@"
+}
+
+ifup_and_logger()
+{
+    [ -z  $1 ] && return;
+    logger -p warn -t "pppoe-check" "wan restart because no response from pppoe server."
+    ifup $1;
+}
+
+check_ppp_dest_peer()
+{
+    network_is_autostart vpn || return
+
+    network_is_up vpn || (ifup_and_logger vpn ; return)
+
+    network_is_pending && (ifup_and_logger vpn ; return)
+
+    network_get_device vpn_device vpn
+
+    [ -z $vpn_device ] && return;
+
+    [ $vpn_device != "pptp-vpn" -a $vpn_device != "l2tp-vpn" ] && return;
+    
+    dest_peer_ip=`ifconfig $vpn_device  2>/dev/null |awk -F ' ' '/P-t-P/ {print substr($3, 7);}'`
+
+    [ -z $dest_peer_ip ] &&  return;
+
+    ping -c 1 -w 3 -q "$dest_peer_ip" 2>&1 >/dev/null && return   
+       
+    ifup_and_logger vpn
+}
+
+check_gateway()
+{
+    local host_list=
+    if [ "$1" == "CN" ]; then
+	host_list=$(uci -q get system.netdt.cn_domain)
+    else
+	host_list=$(uci -q get system.netdt.world_domain)
+    fi
+    for host in $host_list; do
+	ping -c 1 -w 3 -q "$host" &> /dev/null && return 0;
+    done
+    return 1;
+}
+
+check_dns()
+{
+    local host_list=
+    local dns_list=
+    if [ "$1" == "CN" ]; then
+	host_list=$(uci -q get system.netdt.cn_domain)
+	dns_list=$(uci -q get system.netdt.cn_dns)
+    else
+	host_list=$(uci -q get system.netdt.world_domain)
+	dns_list=$(uci -q get system.netdt.world_dns)
+    fi
+    # then check dns
+    for ns in $dns_list; do
+	for th in $host_list; do
+	    /usr/sbin/nslookupc "$th" "$ns" 5 && return 0
+	done
+    done
+    return 1;
+}
+
+LOCKFILE=/var/lock/pppoe-check
+trap "lock -u ${LOCKFILE}; exit" INT TERM EXIT
+if ! lock -n $LOCKFILE; then
+    dlog "pppoe-check already running, skip this sync"
+    trap '' EXIT
+    exit 0
+fi
+cc=$(/usr/sbin/bdata get CountryCode)
+cc=${cc:-CN}
+check_ppp_dest_peer
+
+check_gateway $cc && exit 0
+
+# disable custom dns check since it dose not anyway.
+#check_dns $cc && exit 0;
+
+ifup_and_logger wan
+
+
+
+
+
+
+
+
+

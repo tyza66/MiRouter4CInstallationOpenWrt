@@ -1,0 +1,66 @@
+#!/bin/sh /etc/rc.common
+
+START=80
+STOP=20
+
+#export command line for /usr/sbin/supervisord
+export PROCLINE="/usr/sbin/datacenter"
+export PROC_USE_CGROUP_PATH="/dev/cgroup/mem/group1/tasks"
+
+change_stopedApp_status() {
+	dir=/userdisk/appdata/app_infos
+	if [ -d "$dir" ];then
+		for file in `ls $dir | grep [^a-zA-Z]\.manifest$`
+		do
+			sed -i '/^status/s/\(.*\"\)\(7\)\(\".*\)/\1'5'\3/g' $dir/$file
+		done
+	fi
+}
+
+
+start() {
+        #del mitv and smb
+        [ -e /userdisk/appdata/2882303761517280984 ] && rm -rf /userdisk/appdata/2882303761517280984
+        [ -e /userdisk/appdata/2882303761517281003 ] && rm -rf /userdisk/appdata/2882303761517281003
+        [ -e /userdisk/appdata/app_infos/2882303761517280984.manifest ] && rm -rf /userdisk/appdata/app_infos/2882303761517280984.manifest
+        [ -e /userdisk/appdata/app_infos/2882303761517281003.manifest ] && rm -rf /userdisk/appdata/app_infos/2882303761517281003.manifest
+
+	#删除记录插件pid的文件
+	rm -f /userdisk/appdata/plugin_id_info.cfg
+	
+	#处理一部分data文件夹没有写权限的问题
+	
+	if [ ! -d /var/log/messages ]
+	then
+		mkdir /userdisk/data
+	fi
+	chmod 777 /userdisk/data
+
+	#更改被任务管理器关闭的插件状态
+	change_stopedApp_status
+
+	/usr/sbin/supervisord start
+	return $?
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+	return $?
+}
+
+shutdown() {
+	stop
+	return $?
+}
+
+stop() {
+	/usr/sbin/supervisord stop
+	return $?
+}
+status() {
+	/usr/sbin/supervisord status
+	return $?
+}
+#

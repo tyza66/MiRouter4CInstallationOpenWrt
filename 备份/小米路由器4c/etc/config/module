@@ -1,0 +1,2 @@
+config core 'common'
+    option 'replacement_assistant' '1'

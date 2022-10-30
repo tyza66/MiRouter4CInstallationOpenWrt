@@ -1,0 +1,40 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org 
+
+START=30
+
+#Add dynamic crontab entry.Better before crond is started
+
+fixup_ota_dl() {
+	grep "otapredownload" /etc/crontabs/root  | grep "3,4,5" -q
+	[ "$?" = "0" ] && return 0
+
+	base=`head -n 10 /dev/urandom | md5sum | cut -c 1-4`
+	min=`echo $(($((0x$base))%60))`
+
+	sed -i '/otapredownload/d' /etc/crontabs/root
+	echo "$min 3,4,5 * * * /usr/sbin/otapredownload >/dev/null 2>&1" >> /etc/crontabs/root
+}
+
+fixup_quarkd_dl() {
+	[ -e /usr/sbin/quarkd ] || return 0
+
+	base=`head -n 10 /dev/urandom | md5sum | cut -c 1-4`
+	min=`echo $(($((0x$base))%60))`
+	hour=`echo $(($((0x$base))%24))`
+
+	sed -i '/quarkd/d' /etc/crontabs/root
+	echo "$min $hour * * * /usr/sbin/quarkd >/dev/null 2>&1" >> /etc/crontabs/root
+
+	if [ -e /usr/sbin/qactive.sh ]; then
+		sed -i '/qactive/d' /etc/crontabs/root
+		echo "0 */1 * * * /usr/sbin/qactive.sh >/dev/null 2>&1" >> /etc/crontabs/root
+	fi
+}
+
+start() {
+	fixup_ota_dl
+	fixup_quarkd_dl
+
+	return 0
+}

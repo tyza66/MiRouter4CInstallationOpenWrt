@@ -1,0 +1,37 @@
+Name:	udhcpc
+State:	S (sleeping)
+Tgid:	18615
+Pid:	18615
+PPid:	1028
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	32
+Groups:	
+VmPeak:	    1816 kB
+VmSize:	    1816 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     452 kB
+VmRSS:	     452 kB
+VmData:	     364 kB
+VmStk:	     136 kB
+VmExe:	     500 kB
+VmLib:	     784 kB
+VmPTE:	      12 kB
+VmSwap:	       0 kB
+Threads:	1
+SigQ:	0/472
+SigPnd:	00000000000000000000000000000000
+ShdPnd:	00000000000000000000000000000000
+SigBlk:	00000000000000000000000000000000
+SigIgn:	00000000000000000000000000001004
+SigCgt:	0000000000000000000000000001c000
+CapInh:	0000000000000000
+CapPrm:	0000001fffffffff
+CapEff:	0000001fffffffff
+CapBnd:	0000001fffffffff
+Cpus_allowed:	1
+Cpus_allowed_list:	0
+voluntary_ctxt_switches:	563
+nonvoluntary_ctxt_switches:	2

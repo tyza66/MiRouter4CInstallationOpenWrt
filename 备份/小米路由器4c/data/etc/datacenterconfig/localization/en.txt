@@ -1,0 +1,26 @@
+backup_photo_dir_name###Albums
+backup_movie_dir_name###Movies
+backup_music_dir_name###Music
+backup_doc_dir_name###Documents
+backup_other_dir_name###Other
+backup_custom_dir_name###Custom Backup
+backup_harddisk_default_label###Router HDD
+backup_extdisk_default_label###USB Storage
+backup_dir_name_mark###[Backup]
+extdisk_device_name###Other Camera
+default_label_for_nolabel_extdisk###USB Storage
+init_create_video_dir_name###Videos
+init_create_image_dir_name###Photos
+init_create_audio_dir_name###Music
+init_create_doc_dir_name###Documents
+init_create_share_dir_name###Share
+init_create_download_dir_name###Download
+new_privacy_data_path###Private Folder
+backup_router_disk###[Backup]Router HDD
+xiaoyi_camera_dir_name###Surveillance Video
+usb_xiaoyi_camera_dir_name###Surveillance Video-USB
+xiaoyi_action_camera_name###Yi Camera
+xunlei_name###Thunder Download Engine
+mitv_name###MiTV assistant
+taskmanager_xunlei_introduction###This is a built-in download engine of Mi router, the Thunder members can enjoy high-speed download channel brings the ultimate experience
+taskmanager_system_introduction###This is Mi router operating system kernel, system operation must contain a series of processes that can not be ended

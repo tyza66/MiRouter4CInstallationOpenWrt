@@ -1,0 +1,51 @@
+#! /bin/sh
+# get/set rule to expose xiaoqiang to wan
+
+usage(){
+    echo "$0 get"
+    echo "$0 on"
+    echo "$0 off"
+    exit 1
+}
+
+get_status() {
+    if uci -q get firewall.expose > /dev/null; then
+	echo 'on'
+    else
+	echo 'off'
+    fi
+}
+
+turn_on() {
+    uci -q batch <<EOF > /dev/null
+set firewall.expose=rule
+set firewall.expose.src=wan
+set firewall.expose.dest_port=80
+set firewall.expose.proto=tcp
+set firewall.expose.target=ACCEPT
+set firewall.expose.name='allow_wan_access'
+commit
+EOF
+    /etc/init.d/firewall restart
+}
+
+turn_off() {
+    uci -q delete firewall.expose
+    uci commit firewall
+    /etc/init.d/firewall restart
+}
+
+case "$1" in
+    get)
+	get_status
+    ;;
+    on)
+	turn_on
+    ;;
+    off)
+	turn_off
+    ;;
+    *)
+	usage
+    ;;
+esac

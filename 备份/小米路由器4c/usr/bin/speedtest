@@ -1,0 +1,218 @@
+#!/usr/bin/env lua
+local posix = require("Posix")
+local ubus = require ("ubus")
+local fs     = require "nixio.fs"
+
+local cfg = {
+	['postfile'] = "/tmp/postfile.dat",
+	['postfilesize'] = 512,  -- kbyte
+	['posturl'] = "http://netsp.master.qq.com/cgi-bin/netspeed",
+	['geturl'] = "http://dlied6.qq.com/invc/qqdoctor/other/test32mb.dat",
+	['nr'] = 100,        --Number of requests to perform
+	['nc'] = 15,     --Number of multiple requests to make at a time
+	['timelimit'] = 5,
+	['timestep'] = 1,
+	['ab'] = "/usr/bin/ab",
+	['dd'] = "/bin/dd",
+	['debug'] = 0,
+	['xmlfile'] = "/usr/share/speedtest.xml",
+}
+
+local pp = io.open(cfg.xmlfile)
+local line = pp:read("*line")
+local size = 0
+local resources = {}
+local u = ""
+local pids = {}
+
+function die(err)
+	posix.openlog(arg[0], "cp", posix.LOG_LOCAL7)
+	posix.syslog(posix.LOG_ERR, err)
+	posix.closelog()
+	os.exit(1)
+end
+
+function mrandom(min,max,num)
+	local reverse = {}
+	local t = {}
+	local ret = {}
+	local i = min
+	local index
+	while i <= max do
+		table.insert(t, i)
+		i = i + 1
+	end
+
+	i = num
+	math.randomseed(os.time())
+
+	while i > 0 do
+		index = math.random(table.getn(t))
+		table.insert(ret,t[index])
+		if index == table.getn(t) then
+			table.remove(t)
+		else
+			local top = table.remove(t)
+			t[index] = top
+		end
+		i = i - 1
+	end
+	return ret
+end
+
+
+function execa(cmd)
+	local p = io.popen(cmd)
+	local line = p:read("*l")
+	while(line) do
+		print(line)
+		line = p:read("*l")
+	end
+	p:close()
+end
+
+function wget_work(url)
+	local _url = url
+	pid = posix.fork()
+	if pid < 0 then
+		print("fork error")
+		return -1
+	elseif pid > 0 then
+		--print(string.format("child pid %d\n", pid))
+	else
+		os.execute('for i in $(seq '.. math.floor(cfg.nr/cfg.nc) ..'); do wget '.. url  ..
+		" -q -O /dev/null; done")
+	end
+	return pid
+end
+
+function wan_device()
+	local conn = ubus.connect()
+	if not conn then
+		elog("Failed to connect to ubusd")
+	end
+	local status = conn:call("network.interface.wan", "status",{})
+	conn:close()
+	return (status.l3_device and status.l3_device) or status.device
+end
+
+function get_pstree(root, pids)
+	local pp = io.popen("pgrep -P "..root)
+	pid = pp:read("*line")
+	while pid do
+		data = table.insert(pids, pid)
+		get_pstree(pid, pids)
+		pid = pp:read("*line")
+	end
+	pp:close()
+end
+
+function done(signo)
+	io.output("/dev/null")
+	local fd = io.open("/dev/null", "rw")
+	if not posix.dup(fd, io.stdout) then
+		die("error dup2-ing")
+	end
+	if not posix.dup(fd, io.stderr) then
+		die("error dup2-ing")
+	end
+	get_pstree(posix.getpid("pid"), pids)
+	for k, pid in ipairs(pids) do
+		print("kill pid:" .. pid)
+		posix.kill(pid, posix.SIGINT)
+	end
+	os.exit(0)
+end
+
+function read_line(filename)
+	local fd = io.open(filename)
+	local line = fd:read("*line")
+	fd:close()
+	return line
+end
+
+
+function get_uptime()
+	local _, _, uptime, idle = string.find(read_line("/proc/uptime"),'^([0-9.]+)%s+([0-9.]+)$')
+	return tonumber(uptime)
+end
+
+
+function get_rt(ifname)
+	local line
+	local face, r_bytes, r_packets, r_errs, r_drop, r_fifo, r_frame, r_compressed, r_multicast
+	local t_bytes, t_packets, t_errs, t_drop, t_fifo, t_colls, t_carrier, t_compressed
+	local _nic = {}
+	if fs.access("/proc/net/dev") then
+		for line in io.lines("/proc/net/dev") do
+			_, _, face, r_bytes, r_packets, r_errs, r_drop, r_fifo, r_frame, r_compressed, r_multicast,
+			t_bytes, t_packets, t_errs, t_drop, t_fifo, t_colls, t_carrier, t_compressed = string.find(line,
+			'%s*(%S+):%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s*')
+			if (face == ifname) then
+				return {
+					r_bytes   = tonumber(r_bytes),
+					r_packets = tonumber(r_packets),
+					t_bytes   = tonumber(t_bytes),
+					t_packets = tonumber(t_packets),
+					uptime    = get_uptime()
+				}
+			end
+		end
+	end
+end
+
+
+function print_rt(rt, rt_last, rt_begin)
+	local delta_time = rt.uptime - rt_last.uptime
+	print(string.format("Time(ms):%.0f\trx:%.2f tx:%.2f",
+	delta_time*1000,
+	(rt.r_bytes - rt_last.r_bytes) / delta_time / 1024,
+	(rt.t_bytes - rt_last.t_bytes) / delta_time / 1024))
+end
+
+
+
+-----------------------------------------------------------------------
+
+
+
+posix.signal(posix.SIGTERM, done);
+
+
+while line do
+	local _, _, url = string.find(line,'<item url="(.*)"/>')
+	if url then
+		table.insert(resources, url)
+	end
+	line = pp:read("*line")
+end
+pp:close()
+
+local urls = mrandom(1, table.getn(resources), cfg.nc)
+
+for k, v in ipairs(urls) do
+	local pid = wget_work(resources[v])
+	if(pid == 0) then
+		os.exit(0)
+	elseif(pid == -1) then
+		done()
+	end
+end
+
+
+
+local wan_ifname = wan_device()
+local rt_begin = get_rt(wan_ifname)
+local rt = rt_begin
+local rt_last
+
+local i = 0
+while i < cfg.timelimit do
+	posix.sleep(1)
+	rt_last = rt
+	rt = get_rt(wan_ifname)
+	print_rt(rt, rt_last, rt_begin)
+	i = i + 1
+end
+done()
+

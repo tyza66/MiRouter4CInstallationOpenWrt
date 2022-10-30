@@ -1,0 +1,212 @@
+<%
+-- 系统信息js
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local XQBackup = require("xiaoqiang.module.XQBackup")
+local romVersion = XQSysUtil.getRomVersion()
+local uploadUrl = luci.dispatcher.build_url("api", "xqsystem","upload_rom")
+local backupKeys = XQBackup.defaultKeys()
+%>
+
+<script type="tmpl/text" id="uploadform">
+<p><%:路由器正常工作情况下建议使用系统升级检测进行升级，在当系统无法升级或需要降级到前一版本时使用手动上传rom包进行升级。%></p>
+<div class="uploadprogress" id="uploadprogress" style="display:none;">
+    <div class="progress-text">0%</div>
+    <div class="progress"><div class="value"></div></div>
+</div>
+<div class="uploadloading" id="uploadloading" style="display:none;">
+    <div class="loading-bar"></div>
+</div>
+<form class="form form-upload" name="uploadForm" id="uploadForm" method="post" enctype="multipart/form-data" >
+    <div class="item">
+        <label class="k"><%:请选择固件:%></label>
+        <span class="v">
+            <input type="file" name="image" id="image" />
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="item item-contral">
+        <button type="button" class="btn btn-block btn-primary-disabled" id="uploadFormBtn" disabled><span><%:开始升级%></span></button>
+    </div>
+</form>
+</script>
+
+<script type="tmpl/text" id="selectBackupList">
+<div class="dialog-select-list">
+    <p class="gray"><%:可选备份%></p>
+    <ul>
+    <%for k,v in pairs(backupKeys) do%>
+        <li><label><input type="checkbox" name="item" data-key="<%=k%>" checked="true" /> <span class="name"><%=v%></span></label></li>
+    <%end%>
+    </ul>
+    <a href="#" id="btnstartbackup" class="btn btn-primary btn-l"><span><%:开始备份%></span></a>
+</div>
+</script>
+<script type="tmpl/text" id="backupFail">
+<div class="dialog-backup-tips">
+    <img src="<%=resource%>/web/img/ico_warn.png?v=<%=ver%>">
+    <p ><%:由于%> <span></span> <%:原因，路由器设置备份失败！%></p>
+    <a href="#" class="btn btn-primary btn-l"><span><%:重试%></span></a>
+</div>
+</script>
+<script type="tmpl/text" id="configUpload">
+<div class="config-upload">
+    <img src="<%=resource%>/web/img/ico_back.png?v=<%=ver%>">
+    <form class="form form-upload" name="configuploadForm" id="configuploadForm" method="post" enctype="multipart/form-data" >
+    <div class="item">
+        <label class="k"><%:请选择备份文件%></label>
+        <span class="v">
+            <input type="file" name="image" id="configimage" />
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="item item-contral">
+        <button type="button" class="btn btn-block btn-primary-disabled" id="configuploadFormBtn" disabled><span><%:开始恢复%></span></button>
+    </div>
+    </form>
+</div>
+</script>
+<script type="tmpl/text" id="selectRestoreList">
+<div class="dialog-select-list">
+    <p class="gray"><%:可选恢复的项目%></p>
+    <ul>
+
+    </ul>
+    <a href="#" id="btnstartrestore" class="btn btn-primary btn-l"><span><%:恢复%></span></a>
+</div>
+</script>
+<script type="tmpl/text" id="restoresucc">
+<div class="dialog-backup-tips">
+    <img src="<%=resource%>/web/img/ico_ok.png?v=<%=ver%>">
+    <p ><%:路由器设置恢复成功，重启路由器即可生效！%> </p>
+    <a href="#" class="btn btn-primary btn-l"><span><%:重启路由器%></span></a>
+</div>
+</script>
+<script type="tmpl/text" id="restorefail">
+<div class="dialog-backup-tips">
+    <img src="<%=resource%>/web/img/ico_warn.png?v=<%=ver%>">
+    <p ><%:由于%> <span></span> <%:原因，路由器设置备份失败！%></p>
+    <a href="#" class="btn btn-primary btn-l"><span><%:重试%></span></a>
+</div>
+</script>
+<script type="tmpl/text" id="resettip">
+<div class="dialog-reset-tips">
+    <img src="<%=resource%>/web/img/ico_warn.png?v=<%=ver%>">
+    <p ><%:恢复出厂设置操作会抹掉当前路由器的所有设置，建议您先进行配置备份再恢复出厂设置。%></p>
+    <div class="btns">
+        <a href="#" id="toconfigbackup" class="btn btn-primary btn-m"><span><%:备份路由器设置%></span></a>
+        <a href="#" id="toresetwindow" class="btn btn-primary btn-m"><span><%:直接恢复出厂设置%></span></a>
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tpltimezone">
+<div class="dialog-timezone">
+    <div class="clearfix">
+        <div class="form-item-select">
+            <label class="k"></label>
+            <span class="v"><select name="timezone" id="timezone" class="beautify"></select></span>
+        </div>
+    </div>
+
+    <div>
+        <button type="button" id="btnTimezoneSubmit" class="btn btn-primary btn-l"><span><%:确定%></span></button>
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tpldatetime">
+<div class="dialog-datetime">
+    <div>
+        <span><select name="year" id="year" style="width:80px;"></select> <%:年%></span>
+        <span><select name="month" id="month" style="width:80px;"></select> <%:月%></span>
+        <span><select name="day" id="day" style="width:80px;"></select> <%:日%></span>
+    </div>
+    <div>
+        <span><select name="hour" id="hour" style="width:80px;"></select> <%:时%></span>
+        <span><select name="minute" id="minute" style="width:80px;"></select> <%:分%></span>
+        <span><select name="second" id="second" style="width:80px;"></select> <%:秒%></span>
+    </div>
+    <p><button type="button" id="btnGetNowDate" class="btn btn-dft btn-l"><span><%:当前时间%></span></button></p>
+    <p><button type="button" id="btnDatetimeSubmit" class="btn btn-primary btn-l"><span><%:确定%></span></button></p>
+</div>
+</script>
+<script>
+// upload method
+(function( $ ){
+    $.fn.ajaxUpload = function(options){
+
+        var that = this,
+            uploadbyiframe = function( options ){
+                var d = new Date().getTime(),
+                    iframeName = 'iframeUpload' + d,
+                    iframeContents,
+                    iframe = $('<iframe name="'+iframeName+'" id="'+iframeName+'" style="display: none" />');
+                $("body").append(iframe);
+
+                var form = $(that);
+                form.attr("action", options.url);
+                form.attr("method", "post");
+                form.attr("enctype", "multipart/form-data");
+                form.attr("encoding", "multipart/form-data");
+                form.attr("target", iframeName);
+                form.submit();
+
+                form.hide();
+                $('#uploadloading').show();
+                $(document.getElementById(iframeName))
+                    .load(function () {
+                        try{
+                            iframeContents = document.getElementById(iframeName).contentWindow.document.body.innerHTML;
+                            var rsp = iframeContents.match(/^\{.*?\}/);
+                            if ( rsp ) {
+                                rsp = $.parseJSON(rsp[0]);
+                                options.success(rsp);
+                            } else {
+                                options.error();
+                                form.show();
+                                $('#uploadloading').hide();
+                            }
+                        } catch( e ) {
+                            options.error();
+                            form.show();
+                            $('#uploadloading').hide();
+                        }
+                    })
+                    .error(function(){
+                        options.error();
+                        form.show();
+                        $('#uploadloading').hide();
+                    });
+                return false;
+
+            },
+            uploadbyajax = function( options ) {
+                var form = $(that);
+                var formData = new FormData( form[0] );
+                var progressBar = form.find( '.progress' );
+                var progressBar = $('#uploadprogress');
+                var progressBarVal = progressBar.find( '.progress .value' );
+                var progressBarText = progressBar.find( '.progress-text' );
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', options.url, true);
+                xhr.onload = function(e) {
+                    if ( xhr.status === 200) {
+                        var rsp = $.parseJSON(e.target.responseText);
+                        options.success(rsp);
+                    } else {
+                        options.error();
+                        form.show();
+                        progressBar.hide();
+                    }
+                };
+                xhr.onerror = function(e) {
+                    options.error();
+                    form.show();
+                    progressBar.hide();
+                };
+                xhr.upload.onprogress = function ( e ) {
+                    console.log( e, progressBar );
+                    if (e.lengthComputable) {
+                        form.hide();
+                        progressBar.show();
+                        var pct = (e.loaded / e.total) * 100;
+               

@@ -1,0 +1,10 @@
+config mode 'mode'
+    option wan 'blacklist'
+    option lan 'blacklist'
+    option admin 'blacklist'
+    option pridisk 'whitelist'
+
+config lanports
+
+config adminports
+    option tcp 80,443,23,22

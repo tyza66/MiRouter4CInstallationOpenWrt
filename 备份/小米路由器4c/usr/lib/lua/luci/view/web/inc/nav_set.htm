@@ -1,0 +1,13 @@
+<div class="nav-set">
+    <table>
+        <tr>
+            <td <%if string.find(REQUEST_URI, "/qos") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","qos")%>"><%:QoS智能限速%></a></td>
+            <td <%if string.find(REQUEST_URI, "/upnp") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","upnp")%>">UPnP</a></td>
+            <td <%if string.find(REQUEST_URI, "dhcpipmacband") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","dhcpipmacband")%>"><%:DHCP静态IP分配%></a></td>
+            <td <%if string.find(REQUEST_URI, "/ddns") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","ddns")%>">DDNS</a></td>
+            <td <%if string.find(REQUEST_URI, "/nat") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","nat")%>"><%:端口转发%>/DMZ</a></td>
+<!--             <td <%if string.find(REQUEST_URI, "/dmz") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","dmz")%>"><%:端口转发%>/DMZ</a></td> -->
+            <td <%if string.find(REQUEST_URI, "/vpn") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","setting","vpn")%>">L2TP/PPTP</a></td>
+        </tr>
+    </table>
+</div>

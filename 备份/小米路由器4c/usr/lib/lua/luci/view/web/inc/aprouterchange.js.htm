@@ -1,0 +1,207 @@
+<script>
+$(function(){
+    var aprouterChangeDialog;
+
+    $( '#btnApRouterSwitch' ).on( 'click', function( e ){
+        e.preventDefault();
+        aprouterChangeDialog = $.dialog({
+            title:'<%:中继目标切换%>',
+            content: $('#tmplApRouterSwitch').html(),
+            padding: '30px 30px',
+            lock: true
+        });
+        setTimeout(function(){
+            $.selectBeautify({
+                // 'maxHeight': '205px'
+            });
+            updateWifiList();
+            $.formInit();
+        }, 100);
+    } );
+
+    //
+    var step = {
+        'prev': null,
+        'curr': 'step-select',
+        'next': null
+    };
+    var goToStep = function(stepClass){
+        step.prev = step.curr;
+        step.curr = stepClass;
+        $('.netmode-switch-dialog-cont .switch-step').hide();
+        $( "."+step.curr ).show();
+    };
+    var getWifiEncryptionStatus = function(){
+        var index = $('#ssidselect')[0].selectedIndex;
+        var selectoption = $('#ssidselect').find('option').eq(index);
+        var reg = /no-encryption/i;
+        var classname = selectoption.attr('class');
+        var result;
+
+        if( reg.test(classname) ){
+            //未加密
+            result = false;
+        }else{
+            //加密
+            result = true;
+        }
+        // console.log(classname, result);
+        return result;
+    };
+    var getWifiEncryption = function(){
+        var index = $('#ssidselect')[0].selectedIndex;
+        var selectoption = $('#ssidselect').find('option').eq(index);
+        var encryption = selectoption.attr('data-encryption');
+        return encryption;
+    };
+    var showHideWifiInput = function(){
+        var flag = getWifiEncryptionStatus();
+        var wifiInputDiv = $('#wdsWifiInputDivForSelect');
+        var wifiInputDivWep = $('#wdsWifiInputDivForSelectWep');
+        if( flag ){
+            wifiInputDiv.find('input').val('');
+            wifiInputDivWep.find('input').val('');
+            if( getWifiEncryption() == 'WEP' ){
+                wifiInputDivWep.show();
+                wifiInputDiv.hide();
+            }else{
+                wifiInputDivWep.hide();
+                wifiInputDiv.show();
+            }
+        }else{
+            wifiInputDiv.hide();
+            wifiInputDiv.find('input').val('12345678');
+            wifiInputDivWep.hide();
+            wifiInputDivWep.find('input').val('12345');
+        }
+    };
+    var updateWifiList = function(){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "wifi_list")%>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res){
+                if( res.code == 0 ){
+                    if( res.list.length > 0 ){
+                        var fragment = document.createDocumentFragment();
+                        var list = res.list;
+                        var select = $('#ssidselect');
+                        $(list).each(function(index, item){
+                            var option = $('<option />');
+                            option.attr('data-bandwidth', item.bandwidth);
+                            option.attr('data-ssid', StringH.encode4Html( item.ssid ) );
+                            option.text( item.ssid );
+                            option.attr('data-band', item.band);
+                            option.attr('data-channel', item.channel);
+                            option.attr('data-enctype', item.enctype);
+                            option.attr('data-encryption', item.encryption);
+                            option.addClass( 'wds-wifi-option' );
+                            if( item.encryption == 'NONE' ){
+                                if( item.signal > 75 ){
+                                    option.addClass( 'no-encryption-4' );
+                                }else if( item.signal > 50 && item.signal <= 75 ){
+                                    option.addClass( 'no-encryption-3' );
+                                }else if( item.signal > 25 && item.signal <= 50 ){
+                                    option.addClass( 'no-encryption-2' );
+                                }else if( item.signal <= 25 ){
+                                    option.addClass( 'no-encryption-1' );
+                                }
+                            }else{
+                                if( item.signal > 75 ){
+                                    option.addClass( 'is-encryption-4' );
+                                }else if( item.signal > 50 && item.signal <= 75 ){
+                                    option.addClass( 'is-encryption-3' );
+                                }else if( item.signal > 25 && item.signal <= 50 ){
+                                    option.addClass( 'is-encryption-2' );
+                                }else if( item.signal <= 25 ){
+                                    option.addClass( 'is-encryption-1' );
+                                }
+                            }
+                            if(item.band == '5g'){
+                                var text = document.createElement("i");
+                                text.textContent = "5G";
+                                option.append(text);
+                            }
+                            fragment.appendChild(option[0]);
+
+                        });
+                        select.empty();
+                        $('#dummydata').hide().empty();
+                        select[0].appendChild(fragment);
+                        select.nextAll('.dummy').remove();
+                        $.selectBeautify({
+                            'maxHeight': '205px'
+                        });
+                        select.next('.dummy').show();
+                        showHideWifiInput();
+                    }else{
+                        $.alert('<%:未能扫描到Wi-Fi,请确保射频开启%>');
+                    }
+                }
+            }
+        });
+    };
+
+    $.sub('aprouterSwitch:addEvent', function(){
+        $('body').delegate('#changeSelectTypeAprouter', 'click', function(e){
+            e.preventDefault();
+            $('#wdsAprouter .toggle-element').toggle();
+            $('#ssidSelectDiv').toggleClass('flag-is-select');
+            if( /<%:输入%>/.test( $(this).text() ) ){
+                $(this).html('<%:选择已有网络%>');
+            }else{
+                $(this).html('<%:手工输入网络名称%>');
+            }
+        });
+        $('body').delegate('#wdsAprouter', 'submit', function(e){
+            e.preventDefault();
+            var validator = Valid.checkAll( this );
+            var selectType = $('#ssidSelectDiv').hasClass('flag-is-select') ? true : false;
+            var checkboxisCheck = $('#newssidtext').is( ':checked');
+
+            if ( validator ) {
+                var index = $('#ssidselect')[0].selectedIndex;
+                var selectoption = $('#ssidselect').find('option').eq(index);
+                var reqDataSelect = {
+                    ssid: StringH.decode4Html( selectoption.attr('data-ssid') ),
+                    encryption: selectoption.attr('data-encryption'),
+                    enctype: selectoption.attr('data-enctype'),
+                    password: $('#wdsAprouter input[name="passwordforselect"]').val(),
+                    channel: selectoption.attr('data-channel'),
+                    bandwidth: selectoption.attr('data-bandwidth'),
+                    band: selectoption.attr('data-band')
+                };
+                if( getWifiEncryption() == 'WEP' ) {
+                    reqDataSelect.password = $('#wdsAprouter input[name="passwordforselectwep"]').val();
+                }
+                var reqDataInput = {
+                    ssid: $.trim( $('#wdsAprouter input[name="ssidinput"]').val() ),
+                    password: $('#wdsAprouter input[name="passwordforinput"]').val()
+                };
+                if( $.trim( reqDataInput.password ).length == 0 ){
+                    reqDataInput.encryption = 'NONE';
+                }
+                var reqData;
+                if( selectType ){
+                    reqData = reqDataSelect;
+                }else{
+                    reqData = reqDataInput;
+                }
+
+                if( !checkboxisCheck ){
+                    reqData.nssid = $.trim( $('#wdsAprouter input[name="ssidinputfornewssid"]').val() );
+                    reqData.nencryption = $.trim( $('#wdsAprouter select[name="encryptionkey"]').val() );
+                    if( reqData.nencryption != 'none' ){
+                        reqData.npassword = $.trim( $('#wdsAprouter input[name="passwordfornewssid"]').val() );
+                    }
+                }
+                goToStep('step-setting');
+                //不允许关掉
+                $('.panel .close').hide();
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi_ap")%>',
+                    type: 'POST',
+                    data: reqData,
+                    dataType: 'json',
+                    success: function(res){
+                      

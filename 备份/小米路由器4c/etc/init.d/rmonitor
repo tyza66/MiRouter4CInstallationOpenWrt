@@ -1,0 +1,84 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=20
+
+export PROCLINE="/usr/sbin/rmonitor"
+export PROCFLAG="/usr/sbin/rmonitor"
+export EXTRA_HELP="
+		------------------------------------------------
+		on			Turn on  router monitor
+		off			Turn off router monitor
+		------------------------------------------------"
+export EXTRA_COMMANDS="on off status"
+
+on() {
+	config_load "rmonitor"
+	uci set rmonitor.settings.enabled=1
+	uci commit
+
+	start
+}
+
+off() {
+	config_load "rmonitor"
+	uci set rmonitor.settings.enabled=0
+	uci commit
+
+	stop
+}
+
+#return: 0,enabled; 1 disabled
+rmonitor_flag(){
+	config_load "rmonitor"
+	local st
+	st=`uci get rmonitor.settings.enabled 2>/dev/null`
+	if [ $st -eq "0" ]; then
+		return 1
+	fi
+	return 0
+}
+
+start() {
+	rmonitor_flag
+	if [ $? -ne "0" ]; then
+		echo 'router monitor is not enabled, exit.'
+		return 0
+	fi
+	status
+	if [ $? -eq "0" ]; then
+		echo 'router monitor already running, exit.'
+		return 0
+	fi
+
+	/usr/sbin/supervisord start
+	return $?
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+	return $?
+}
+
+shutdown() {
+	stop
+	return $?
+}
+
+stop() {
+	status
+	if [ $? -ne "0" ]; then
+		echo 'router monitor is not running, exit.'
+		return 0
+	fi
+
+	nohup /usr/sbin/supervisord stop >/dev/null 2>&1 &
+	return $?
+}
+
+status() {
+	/usr/sbin/supervisord status
+	return $?
+}

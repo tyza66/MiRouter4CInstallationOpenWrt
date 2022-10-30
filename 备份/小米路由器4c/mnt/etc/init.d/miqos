@@ -1,0 +1,649 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+EXTRA_COMMANDS=" init_ipt "
+EXTRA_COMMANDS=" $EXTRA_COMMANDS on off shutdown die restart app_on app_off"
+EXTRA_COMMANDS=" $EXTRA_COMMANDS qos_flag status "
+EXTRA_COMMANDS=" $EXTRA_COMMANDS on_limit off_limit set_limit reset_limit apply show_limit limit_flag "
+EXTRA_COMMANDS=" $EXTRA_COMMANDS change_band show_band "
+EXTRA_COMMANDS=" $EXTRA_COMMANDS set_type show_cfg "
+EXTRA_COMMANDS=" $EXTRA_COMMANDS on_guest show_guest on_xq show_xq on_leteng show_leteng set_leteng_task clean_leteng_task"
+EXTRA_COMMANDS=" $EXTRA_COMMANDS set_seq get_seq game_mode_on game_mode_off game_dev_add game_dev_del show_game_state game_dev_band game_mode_band"
+EXTRA_COMMANDS=" $EXTRA_COMMANDS nprio reserve qos_mode_on fast_path_off qos_mode_off fast_path_on wangzhe_plug_on wangzhe_plug_off"
+EXTRA_COMMANDS=" $EXTRA_COMMANDS supress_on supress_off supress_update "
+
+#FIX-QOS only
+EXTRA_COMMANDS=" $EXTRA_COMMANDS device_in device_out "
+
+
+EXTRA_HELP="
+--stat:
+    on/off/shutdown/die/restart
+    qos_flag/status
+--limit:
+    on_limit/set_limit min/max/all [MAC] MAX-UP MAX-DOWN MIN-UP MIN-DOWN
+    off_limit/reset_limit [MAC]
+    show_limit
+    apply
+    limit_flag [MAC] on/off
+    show_limit_flag [MAC]
+--band:
+    change_band UP-RATE DOWN-RATE
+    show_band
+--type:
+    set_type [auto/min/max/service]
+    show_cfg
+--guest & xq:
+    on_guest UP DOWN
+    show_guest
+    on_xq UP DOWN
+    show_xq
+--seq:
+    get_seq
+    set_seq [auto/game/web/video]
+--supress:
+    supress_update/supress_on/supress_off
+--others:
+    nprio add/del IP HIGH_PRIO_WITHOUT_LIMIT/HIGH_PRIO_WITH_BANDLIMIT
+    reserve add/del IP video
+"
+
+#only support 3 types, CTF/STD/FIX
+QOS_VER="FIX"   #here, value would be replace by sed
+WAN_SPEED="__WAN_SPEED__"
+
+HARDWARE=`/sbin/uci get /usr/share/xiaoqiang/xiaoqiang_version.version.HARDWARE`
+if [ "$HARDWARE" == "R3" ]; then
+    WAN_SPEED="102408"
+fi
+
+if [ "$QOS_VER" == "CTF" ]; then
+    EXECMD="/usr/bin/lua /usr/sbin/miqosd ctf"
+    EXECMD_C="/usr/sbin/miqosc"
+    export PROCLINE=$EXECMD
+    export PROCFLAG=$PROCLINE
+elif [ "$QOS_VER" == "STD" ]; then
+    EXECMD="/usr/bin/lua /usr/sbin/miqosd std"
+    EXECMD_C="/usr/sbin/miqosc"
+    export PROCLINE=$EXECMD
+    export PROCFLAG=$PROCLINE
+elif [ "$QOS_VER" == "HWQOS" ]; then
+    EXECMD="/usr/bin/lua /usr/sbin/miqosd hwqos"
+    EXECMD_C="/usr/sbin/miqosc"
+    export PROCLINE=$EXECMD
+    export PROCFLAG=$PROCLINE
+else
+    EXECMD_C="/usr/sbin/miqosc"
+fi
+
+#not supported command check
+ignore(){
+    null_types=$1
+    [ -z "$null_types" ] && return 0;
+
+    for t in $null_types;
+    do
+        [ "$t" == "$QOS_VER" ] && echo "not supported for $QOS_VER." && exit 0;
+    done
+}
+
+#-------------------------------
+init_ipt(){
+   /usr/sbin/miqosd_init.sh
+   return $?
+}
+
+#-------------------------------
+#0,ok; non-0, Nok
+start() {
+    if [ "$QOS_VER" == "FIX" ]; then
+        #check NETMODE 1stly
+        local mode
+        mode=`uci -q get xiaoqiang.common.NETMODE`
+        if [ "$mode" == "wifiapmode" -o "$mode" == "lanapmode" ]; then
+            echo "In AP mode, disable QoS. exit!"
+            $EXECMD_C off
+            return 0
+        fi
+
+        local enabled
+        enabled=`uci -q get miqos.settings.enabled`
+        if [ "$enabled" = "1" ]; then
+            $EXECMD_C on
+        else
+            $EXECMD_C off
+        fi
+        return 0
+    else
+        #check NETMODE 1stly
+        local mode
+        mode=`uci get xiaoqiang.common.NETMODE 2>/dev/null`
+        if [ "$mode" == "wifiapmode" -o "$mode" == "lanapmode" ]; then
+            echo "In AP mode, disable QoS. exit!"
+            return 0
+        fi
+        /usr/sbin/supervisord start
+
+        qos_flag
+        if [ $? -ne "0" ]; then
+                echo "miqos is not enabled, only keep top layer1 queue."
+                running
+                if [ $? -eq "0" ]; then
+                    $EXECMD_C off
+                fi
+                return 0
+        fi
+
+        # enable QoS Service
+        $EXECMD_C on
+
+        return 0
+    fi
+}
+
+stop() {
+    shutdown
+}
+
+shutdown(){
+    $EXECMD_C shutdown
+}
+
+restart(){
+    stop &>/dev/null
+    start &>/dev/null
+    return 0
+}
+
+on(){
+    uci set miqos.settings.enabled=1
+    uci commit miqos
+    if [ -f "/etc/init.d/qca-nss-ecm" ]; then
+        /etc/init.d/qca-nss-ecm restart 1 &>/dev/null
+    fi
+
+    if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+        echo 0 > /proc/xqfp/open_fastpath_v3
+    fi
+
+    if [ "$QOS_VER" == "STD" ]; then
+        uci set hwnat.switch.miqos=1
+        uci commit hwnat
+
+        /etc/init.d/hwnat stop &>/dev/null
+    fi
+
+    start
+}
+
+off(){
+    #set -x
+    uci set miqos.settings.enabled=0
+    uci commit miqos
+    if [ -f "/etc/init.d/qca-nss-ecm" ]; then
+        /etc/init.d/qca-nss-ecm restart 0 &>/dev/null
+    fi
+
+    if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+        echo 1 > /proc/xqfp/open_fastpath_v3
+    fi
+
+    if [ "$QOS_VER" == "FIX" ]; then
+        stop #clean directly
+    elif [ "$QOS_VER" == "STD" ]; then
+        uci set hwnat.switch.miqos=0
+        uci commit hwnat
+
+        running
+        if [ $? == 1 ]; then
+            start        # if not running, invoke start, and then off it
+        fi
+
+        $EXECMD_C off     #close htb rules
+
+        #try to start hwnat whatever enough memory or not
+        /etc/init.d/hwnat start &>/dev/null
+    else
+        running
+        if [ $? == 1 ]; then
+            start        # if not running, invoke start, and then off it
+        fi
+        $EXECMD_C off     #close htb rules
+    fi
+
+    return 0
+}
+
+app_on(){
+    if [ "$WAN_SPEED" == "__WAN_SPEED__" ]; then
+        echo "No wan speed!"
+        return 0
+    fi
+
+    local download=`uci -q get miqos.settings.download`
+    local upload=`uci -q get miqos.settings.upload`
+    local enable=`uci -q get miqos.settings.enabled`
+
+    if [ "$download" != "0" ];then
+        echo "download not 0!"
+        return 0
+    fi
+
+    if [ "$upload" != "0" ];then
+        echo "upload not 0!"
+        return 0
+    fi
+
+    if [ "$enable" != "0" ];then
+        echo "enable not 0!"
+        return 0
+    fi
+
+    change_band $WAN_SPEED $WAN_SPEED
+    set_seq game
+    on
+}
+
+app_off(){
+    if [ "$WAN_SPEED" == "__WAN_SPEED__" ]; then
+        echo "No wan speed!"
+        return 0
+    fi
+
+    local download=`uci -q get miqos.settings.download`
+    local upload=`uci -q get miqos.settings.upload`
+    local seq_prio=`uci -q get miqos.param.seq_prio`
+
+    #if user changed qos config during app on ,just return
+    if [ "$download" != "$WAN_SPEED" ];then
+        echo "download config changed!"
+        return 0
+    fi
+
+    if [ "$upload" != "$WAN_SPEED" ];then
+        echo "upload config changed!"
+        return 0
+    fi
+
+    if [ "$seq_prio" != "game" ];then
+        echo "prio config changed!"
+        return 0
+    fi
+
+    change_band 0 0
+    set_seq auto
+    off
+}
+
+die(){
+    #
+    $EXECMD_C die &
+    /usr/sbin/supervisord stop
+    return 0
+}
+
+#-------------------------------
+#return: 0,enabled; 1 disabled
+qos_flag(){
+    #config_load "miqos"
+    local st
+    st=`uci get miqos.settings.enabled 2>/dev/null`
+    if [ $st -eq "0" ]; then
+            return 1
+    fi
+    return 0
+}
+
+# status: 0, actived, 1, inactived
+status(){
+    qos_flag
+    if [ $? == 1 ]; then
+        return 1
+    fi
+
+    if [ "$QOS_VER" == "FIX" ]; then
+        return 0;
+    else
+        /usr/sbin/supervisord status
+        if [ $? == 1 ]; then
+            return 1
+        fi
+        return 0
+    fi
+}
+
+running(){
+    ignore "FIX"
+    /usr/sbin/supervisord status
+    if [ $? == 1 ]; then
+        return 1
+    fi
+    return 0
+}
+
+#-------------------------------
+on_limit(){
+    $EXECMD_C on_limit $@
+}
+
+off_limit(){
+    $EXECMD_C off_limit $@
+}
+
+set_limit(){
+    $EXECMD_C set_limit $@
+}
+
+reset_limit(){
+    $EXECMD_C reset_limit $@
+}
+
+apply(){
+    $EXECMD_C apply $@
+}
+
+show_limit(){
+    $EXECMD_C show_limit $@
+}
+
+limit_flag(){
+    $EXECMD_C limit_flag $@
+}
+
+
+#-------------------------------
+change_band(){
+    $EXECMD_C change_band $@
+}
+
+show_band(){
+    $EXECMD_C show_band $@
+}
+
+#-------------------------------
+
+set_type(){
+    ignore "FIX"
+    $EXECMD_C set_type $@
+}
+
+show_cfg(){
+    $EXECMD_C show_cfg $@
+}
+
+#-------------------------------
+
+on_guest(){
+    $EXECMD_C on_guest $@
+}
+
+
+show_guest(){
+    $EXECMD_C show_guest $@
+}
+
+on_xq(){
+    $EXECMD_C on_xq $@
+}
+
+
+show_xq(){
+    $EXECMD_C show_xq $@
+}
+
+on_leteng(){
+    $EXECMD_C on_leteng $@
+}
+
+
+show_leteng(){
+    $EXECMD_C show_leteng $@
+}
+#-------------------------------
+
+nprio(){
+    ignore "FIX"
+    $EXECMD_C nprio $@
+}
+
+reserve(){
+    ignore "FIX"
+    $EXECMD_C reserve $@
+}
+
+#-------------------------------
+get_seq(){
+    $EXECMD_C get_seq $@
+}
+
+set_seq(){
+    $EXECMD_C set_seq $@
+}
+
+#-------------------------------
+
+supress_on(){
+    ignore "FIX"
+    $EXECMD_C supress_host on
+}
+
+supress_off(){
+    ignore "FIX"
+    $EXECMD_C supress_host off
+}
+
+supress_update(){
+    ignore "FIX"
+    local app_name="2"  # xunyou
+    [ -f /proc/flowmark_app ] && {
+        ret=`cat /proc/flowmark_app | awk -v app_name=$app_name -F, '{ if($5!="" && $2==app_name){print($5) } }'`
+        if [ "$ret" != "" ]; then
+            echo [$ret]
+            $EXECMD_C supress_host on
+        else
+            $EXECMD_C supress_host off
+        fi
+    }
+}
+
+set_leteng_task(){
+    if [ -f "/dev/cgroup/net_cls/leteng/tasks" ]; then
+        echo $1 > /dev/cgroup/net_cls/leteng/tasks
+    fi
+
+    return 0
+}
+
+
+clean_leteng_task(){
+
+    return 0
+}
+#-------------------------------
+
+device_in(){
+    ignore "CTF STD"
+    $EXECMD_C device_in $@
+}
+
+device_out(){
+    ignore "CTF STD"
+    $EXECMD_C device_out $@
+}
+
+game_mode_on(){
+    ignore "FIX"
+
+    local mode
+    mode=`uci -q get xiaoqiang.common.NETMODE`
+    if [ "$mode" == "wifiapmode" -o "$mode" == "lanapmode" ]; then
+        echo "In AP mode, exit!"
+        return 0
+    fi
+
+    if [ -f "/etc/init.d/qca-nss-ecm" ]; then
+        /etc/init.d/qca-nss-ecm restart 1 &>/dev/null
+    fi
+
+    if [ -f "/proc/xqfp/dbg_switch" ]; then
+        echo 1 > /proc/xqfp/dbg_switch
+    fi
+
+    if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+        echo 0 > /proc/xqfp/open_fastpath_v3
+    fi
+
+    if [ "$QOS_VER" == "STD" ]; then
+        uci set hwnat.switch.miqos=1
+        uci commit hwnat
+
+        /etc/init.d/hwnat stop &>/dev/null
+    fi
+
+    $EXECMD_C game_mode_on $@
+}
+
+qos_mode_on(){
+    ignore "FIX"
+
+    local mode
+    mode=`uci -q get xiaoqiang.common.NETMODE`
+    if [ "$mode" == "wifiapmode" -o "$mode" == "lanapmode" ]; then
+        echo "In AP mode, exit!"
+        return 0
+    fi
+
+    $EXECMD_C game_mode_on $@
+}
+
+fast_path_off(){
+    ignore "FIX"
+
+    local mode
+    mode=`uci -q get xiaoqiang.common.NETMODE`
+    if [ "$mode" == "wifiapmode" -o "$mode" == "lanapmode" ]; then
+        echo "In AP mode, exit!"
+        return 0
+    fi
+
+    if [ -f "/etc/init.d/qca-nss-ecm" ]; then
+        /etc/init.d/qca-nss-ecm restart 1 &>/dev/null
+    fi
+
+    if [ -f "/proc/xqfp/dbg_switch" ]; then
+        echo 1 > /proc/xqfp/dbg_switch
+    fi
+
+    if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+        echo 0 > /proc/xqfp/open_fastpath_v3
+    fi
+
+    if [ "$QOS_VER" == "STD" ]; then
+        uci set hwnat.switch.miqos=1
+        uci commit hwnat
+
+        /etc/init.d/hwnat stop &>/dev/null
+    fi
+}
+
+game_mode_off(){
+    ignore "FIX"
+
+    local enabled
+    enabled=`uci -q get miqos.settings.enabled`
+    if [ "$enabled" = "1" ]; then
+        if [ -f "/proc/xqfp/dbg_switch" ]; then
+            echo 0 > /proc/xqfp/dbg_switch
+        fi
+        $EXECMD_C game_mode_off $@
+        return 0
+    fi
+
+    if [ -f "/etc/init.d/qca-nss-ecm" ]; then
+        /etc/init.d/qca-nss-ecm restart 0 &>/dev/null
+    fi
+
+    if [ -f "/proc/xqfp/dbg_switch" ]; then
+        echo 0 > /proc/xqfp/dbg_switch
+    fi
+
+    if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+        echo 1 > /proc/xqfp/open_fastpath_v3
+    fi
+
+    if [ "$QOS_VER" == "STD" ]; then
+        uci set hwnat.switch.miqos=0
+        uci commit hwnat
+
+        /etc/init.d/hwnat start &>/dev/null
+    fi
+
+    $EXECMD_C game_mode_off $@
+}
+
+qos_mode_off(){
+    ignore "FIX"
+
+    $EXECMD_C game_mode_off $@
+}
+
+fast_path_on(){
+    ignore "FIX"
+
+    local enabled
+    enabled=`uci -q get miqos.settings.enabled`
+    if [ "$enabled" = "1" ]; then
+        if [ -f "/proc/xqfp/dbg_switch" ]; then
+            echo 0 > /proc/xqfp/dbg_switch
+        fi
+        return 0
+    fi
+
+    if [ -f "/etc/init.d/qca-nss-ecm" ]; then
+        /etc/init.d/qca-nss-ecm restart 0 &>/dev/null
+    fi
+
+    if [ -f "/proc/xqfp/dbg_switch" ]; then
+        echo 0 > /proc/xqfp/dbg_switch
+    fi
+
+    if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+        echo 1 > /proc/xqfp/open_fastpath_v3
+    fi
+
+    if [ "$QOS_VER" == "STD" ]; then
+        uci set hwnat.switch.miqos=0
+        uci commit hwnat
+
+        /etc/init.d/hwnat start &>/dev/null
+    fi
+}
+
+game_dev_add(){
+    $EXECMD_C game_dev_add $@
+}
+
+game_dev_del(){
+    $EXECMD_C game_dev_del $@
+}
+
+show_game_state(){
+    $EXECMD_C show_game_state $@
+}
+
+game_dev_band(){
+    $EXECMD_C game_dev_band $@
+}
+
+game_mode_band(){
+    $EXECMD_C game_mode_band $@
+}
+
+wangzhe_plug_on(){
+    $EXECMD_C wangzhe_plug_on $@
+}
+
+wangzhe_plug_off(){
+    $EXECMD_C wangzhe_plug_off $@
+}

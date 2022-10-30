@@ -1,0 +1,94 @@
+#!/bin/sh /etc/rc.common
+
+START=20
+STOP=90
+
+SERVICE_DAEMONIZE=1
+SERVICE_WRITE_PID=1
+
+fix_apmode_network_config(){
+	ap_mode=$(uci -q get xiaoqiang.common.NETMODE)
+	[ "$ap_mode" != "lanapmode" ] && return 0
+
+	config_load misc
+	config_get cmd_ifname_2G wireless ifname_2G &>/dev/null;
+	config_get cmd_ifname_5G wireless ifname_5G &>/dev/null;
+
+	lan_device=$(uci -q get backup.lan.ifname)
+	[ "$lan_device" == "" ] && lan_device="eth0"
+
+	ap_mode_act=$(uci -q get misc.switchop.bridgeap_open)
+	[ "$ap_mode_act" == "bridgeap_open_r1cm_elink" ] && {
+		uci set network.lan.ifname="$lan_device $cmd_ifname_2G $cmd_ifname_5G"
+		uci commit network
+	}
+}
+
+# longloopd must be shutdown prior to interface change
+stop_longloop() {
+	[ -x /usr/bin/longloopd ] && /usr/bin/longloopd stop
+}
+
+start() {
+	stop
+
+	# ensure netifd alive during OOM
+	echo '-1000' > /proc/$$/oom_score_adj
+	service_start /sbin/netifd
+	# wait for netifd start up
+	ubus -t 30 wait_for network.interface
+	setup_switch() { return 0; }
+
+	include /lib/network
+
+	{
+		/sbin/wifi down >/dev/null 2>&1
+		/sbin/wifi up
+	}
+
+	logger -t network -p9 "try to setup_switch and restart interfaces."
+	setup_switch
+
+	#for mt7621, seperate 16Queues into 2GMAC-scheduler to enable 1G+1G rate in HWNAT
+	[ -f /usr/bin/qdma ] && {
+	for i in `seq 14 1 15`; do
+		qdma sch $i 1
+	done
+	}||:
+
+	return 0    # always return ok
+
+}
+
+restart() {
+	stop_longloop
+
+	ifdown -a
+	sleep 1
+	start
+}
+
+shutdown() {
+	stop_longloop
+	ifdown wan
+	# sleep to let PPPoE clean up its sesssion.
+	for i in `seq 1 10`; do
+		pidof pppd >/dev/null || break
+		sleep 1
+	done
+	wifi down
+	ifdown -a
+	stop
+}
+
+stop() {
+	fix_apmode_network_config
+	stop_longloop
+	service_stop /sbin/netifd
+}
+
+reload() {
+	ubus call network reload
+	/sbin/wifi down
+	/sbin/wifi up
+}

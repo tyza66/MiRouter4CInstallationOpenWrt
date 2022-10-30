@@ -1,0 +1,14 @@
+#!/bin/sh
+wanip_status="/tmp/router_in_xiaomi"
+
+[ "$ACTION" = "ifdown" ] && [ "$INTERFACE" = "wan" ] && {
+    echo 1 > $wanip_status
+    /usr/sbin/wanip_check.sh off & >/dev/null 2>&1
+    logger -p debug -t wanip_check "guest_wifi wan down, set flag to 1."
+}
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] && {
+    # 1. do wanip check
+    /usr/sbin/wanip_check.sh on & >/dev/null 2>&1
+    logger -p debug -t wanip_check "guest_wifi wan up, do wanip check again.."
+}

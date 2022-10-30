@@ -1,0 +1,4 @@
+config temperature
+	option 'highest'	'64'
+	option 'middle'		'55'
+	option 'lowest'		'50'

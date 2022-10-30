@@ -1,0 +1,44 @@
+#!/bin/sh /etc/rc.common
+
+START=97
+STOP=20
+
+#export command line for /usr/sbin/supervisord
+
+
+export EXTRA_HELP="	status	Status the service"
+export EXTRA_COMMANDS="status"
+
+export PROCLINE='/usr/sbin/plugincenter'
+export PROC_USE_CGROUP_PATH="/dev/cgroup/net_cls/limited/tasks;/dev/cgroup/mem/group1/tasks"
+
+start() {
+
+	#删除记录插件pid的文件
+	rm /userdisk/appdata/plugin_id_info.cfg -f
+
+	/usr/sbin/supervisord start
+	return $?
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+	return $?
+}
+
+shutdown() {
+	stop
+	return $?
+}
+
+stop() {
+	/usr/sbin/supervisord stop
+	return $?
+}
+status() {
+	/usr/sbin/supervisord status
+	return $?
+}
+#

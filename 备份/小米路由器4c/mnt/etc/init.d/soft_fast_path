@@ -1,0 +1,159 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+SWITCH_PATH="/proc/xqfp/dbg_switch"
+set_switch_on="uci set soft_fast_path.settings.enabled=1"
+set_switch_off="uci set soft_fast_path.settings.enabled=0"
+set_switch_commit="uci commit soft_fast_path"
+REFERER_PATH="/proc/http_status/referer"
+IPT="/usr/sbin/iptables -t mangle"
+XQFP_CHAIN="xqfp_chain"
+TCP_PROXY="/proc/sys/net/ipv4/tcp_proxy_switch"
+
+export EXTRA_COMMANDS=" on off start stop tcp_proxy_load tcp_proxy_unload fw_load fw_unload"
+export EXTRA_HELP="	on	Enable and start soft fast path
+	off	Disable and stop soft fast path
+	start   Start soft fast path
+	stop	Stop soft fast path
+        tcp_proxy_load   load tcp proxy rules
+        tcp_proxy_unload   unload tcp proxy rules
+        fw_load     firewall rules load"
+
+
+tcp_proxy_load() {
+    (echo 1 > /proc/xqfp/tcp_proxy_enabled) &>/dev/null
+}
+
+tcp_proxy_unload() {
+    (echo 0 > /proc/xqfp/tcp_proxy_enabled) &>/dev/null
+}
+
+load_rules() {
+    $IPT -F $XQFP_CHAIN &>/dev/null
+    $IPT -D PREROUTING -j $XQFP_CHAIN &>/dev/null
+
+    $IPT -N $XQFP_CHAIN &>/dev/null
+    $IPT -A $XQFP_CHAIN -m xqfp --mark 0x0/0x1 -m connmark ! --mark 0x0/0xffff0000 -j XQFP --set-mark 0x1/0x1  &>/dev/null
+
+    if [ -f $TCP_PROXY ]; then
+        local swh
+        swh=`cat $TCP_PROXY`
+        if [ $swh -eq "1" ]; then
+    	    (echo 1 > /proc/xqfp/tcp_proxy_enabled) &>/dev/null
+        else
+    	    (echo 0 > /proc/xqfp/tcp_proxy_enabled) &>/dev/null
+        fi
+    else
+        (echo 0 > /proc/xqfp/tcp_proxy_enabled) &>/dev/null
+    fi
+
+    $IPT -A PREROUTING -j $XQFP_CHAIN &>/dev/null
+}
+
+unload_rules() {
+    $IPT -F $XQFP_CHAIN &>/dev/null
+    $IPT -D PREROUTING -j $XQFP_CHAIN &>/dev/null
+    $IPT -X $XQFP_CHAIN &>/dev/null
+}
+
+fw_load() {
+    if [ -f $SWITCH_PATH ]; then
+        load_rules
+    fi
+}
+
+fw_unload() {
+    unload_rules
+}
+
+
+XQFP_VER="__UNDEFINED__"   #here, value would be replace by sed
+
+start() {
+    local switch
+    switch=`uci get soft_fast_path.settings.enabled -q`
+    if [ $switch -ne "1" ]; then
+        return 0
+    fi
+
+    if [ ! -f $SWITCH_PATH ]; then
+	insmod xqfastpath
+    fi
+
+    trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+    lock /var/run/fw3.lock
+    load_rules
+    lock -u /var/run/fw3.lock
+
+    if [ -f $SWITCH_PATH ]; then
+	echo "0" > $SWITCH_PATH
+    fi
+
+    if [ "$XQFP_VER" == "R3" ]; then
+	if [ -f "/proc/xqfp/v3_wan1" ]; then
+		echo "eth0.2" > "/proc/xqfp/v3_wan1"
+	fi
+	if [ -f "/proc/xqfp/v3_wan2" ]; then
+		echo "pppoe-wan" > "/proc/xqfp/v3_wan2"
+	fi
+	if [ -f "/proc/xqfp/v3_wifi0" ]; then
+		echo "wl0" > "/proc/xqfp/v3_wifi0"
+	fi
+	if [ -f "/proc/xqfp/v3_wifi1" ]; then
+		echo "wl1" > "/proc/xqfp/v3_wifi1"
+	fi
+	if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+		echo 1 > "/proc/xqfp/open_fastpath_v3"
+	fi
+    fi
+
+    if [ "$XQFP_VER" == "R3A" ]; then
+	if [ -f "/proc/xqfp/v3_wan1" ]; then
+		echo "eth0.2" > "/proc/xqfp/v3_wan1"
+	fi
+	if [ -f "/proc/xqfp/v3_wan2" ]; then
+		echo "pppoe-wan" > "/proc/xqfp/v3_wan2"
+	fi
+	if [ -f "/proc/xqfp/v3_wifi0" ]; then
+		echo "wl0" > "/proc/xqfp/v3_wifi0"
+	fi
+	if [ -f "/proc/xqfp/v3_wifi1" ]; then
+		echo "wl1" > "/proc/xqfp/v3_wifi1"
+	fi
+	if [ -f "/proc/xqfp/open_fastpath_v3" ]; then
+		echo 1 > "/proc/xqfp/open_fastpath_v3"
+	fi
+    fi
+
+    return 0
+}
+
+stop() {
+    if [ -f $SWITCH_PATH ]; then
+	echo "1" > $SWITCH_PATH
+    fi
+
+    trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+    lock /var/run/fw3.lock
+    unload_rules
+    lock -u /var/run/fw3.lock
+
+    return 0
+}
+
+off(){
+    stop
+    $set_switch_off >/dev/null 2>&1
+    $set_switch_commit >/dev/null 2>&1
+    return $?
+}
+
+on(){
+    $set_switch_on >/dev/null 2>&1
+    $set_switch_commit >/dev/null 2>&1
+
+    start
+    return $?
+}
+

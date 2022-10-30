@@ -1,0 +1,208 @@
+<%
+--[[
+    Info    PPTP L2TP
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/vpn.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-set mod-vpn">
+            <div class="hd">
+                <div class="help">
+                    <span class="ico"></span>
+                    <span class="arrow-wrap" id="helpArrow">
+                        <span class="arrow1"></span>
+                        <span class="arrow2"></span>
+                    </span>
+                </div>
+                <h3><%:VPN%></h3>
+            </div>
+            <div class="bd">
+                <div class="section section-help" id="helpSection">
+                    <div class="help-cont">
+                        <span class="help-close"></span>
+                        <div class="what">
+                            <h3><%:什么是VPN%></h3>
+                            <p><%:VPN属于远程访问技术，应用举例：出差员工在外地通过VPN服务访问企业内部网络。%></p>
+                            <p><%:PPTP（Point to Point Tunneling Protocol）和L2TP（Layer 2 Tunneling Protocol）为两种互联网隧道协议，都属于VPN（Virtual Private Network）虚拟专用网络的不同协议分类方式。%></p>
+                        </div>
+                        <div class="qa">
+                            <h3><%:常见问题%></h3>
+                            <h4><%:如何设置VPN%></h4>
+                            <p><%:1.首先需要在VPN服务商官网上注册账号，获得用户名、密码、服务器地址、协议类型等信息。%></p>
+                            <p><%:2.将信息添加到服务中，并启用该VPN服务%></p>
+                            <h4><%:注意事项%>:</h4>
+                            <p><%:1.VPN用户名、密码、服务器地址、协议类型等信息需要向VPN服务商获取。%></p>
+                            <p><%:2.如果不清楚VPN协议类型，可以选择自动。%></p>
+                            <p><%:3.服务器地址可以是域名或IP地址，具体由服务商提供。%></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-list">
+                    <h4><%:VPN 服务列表: %></h4>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th width="160"><%:名称%></th>
+                                <th><%:协议类型%></th>
+                                <th><%:服务器地址%></th>
+                                <th><%:用户名%></th>
+                                <th><%:状态%></th>
+                                <th class="center" width="242"><%:操作%></th>
+                            </tr>
+                        </thead>
+                        <tbody id="vpnlist">
+                            <tr>
+                                <td class="center" colspan="6"><%:查询中...%></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="btns">
+                        <a href="#" class="btn btn-dft btn-l" id="btnadditem"><span><%:添加服务%></span></a>
+                    </div>
+                </div>
+                <div class="section-set" style="display:none">
+                    <span class="k"><%:开机自动连接%></span>
+                    <a href="#" id="autostart" class="btn-switch btn-switch-off"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+<script type="tmpl/html" id="tpladdvpn">
+<form action="<%=luci.dispatcher.build_url("api", "xqsystem", "set_vpn")%>" class="form form-vpnadd" method="post" name="vpn" id="vpn">
+    {if($id && $id !='')}
+        <input type="hidden" name="id" value="{$id}">
+    {/if}
+    <div class="form-item">
+        <label class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="oname" reqMsg = "<%:名称%>" class="ipt-text" value="{$oname}"></span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:协议类型%></label>
+        <span class="v">
+            <select name="proto" class="beautify vpntype">
+                <option value="pptp" {if($proto == 'pptp')}selected="selected"{/if}>PPTP</option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item">
+        <label class="k"><%:服务器%></label>
+        <span class="v"><input type="text" name="server" reqMsg = "<%:服务器%>" class="ipt-text" value="{$server}"></span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item">
+        <label class="k"><%:用户名%></label>
+        <span class="v"><input type="text" name="username" reqMsg = "<%:用户名%>" class="ipt-text" value="{$username}"></span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item">
+        <label class="k"><%:密码%></label>
+        <span class="v"><input type="password" name="password" reqMsg = "<%:密码%>" class="ipt-text" data-type="password" value="{$password}"></span>
+        <em class="t"></em>
+    </div>
+    <div class="item-contral">
+        <button type="submit" class="btn btn-primary btn-l" id="btnSave"><span><%:保存%></span></button>
+    </div>
+</form>
+</script>
+<script type="tmpl/html" id="tplvpnlist">
+{if($vpnlist.length > 0)}
+{for(var i=0; i<$vpnlist.length; i++)}
+<tr id="{$vpnlist[i].id}" class="{if($vpnlist[i].iscurrent == 1)}conn-st-5{else}conn-st-3{/if}">
+    <td>{$vpnlist[i].oname}</td>
+    <td>{$vpnlist[i].proto}</td>
+    <td>{$vpnlist[i].server}</td>
+    <td>{$vpnlist[i].username}</td>
+    <td class="conn-st-text">
+        <span class="vpn-status">
+            <span class="val">
+            {if($vpnlist[i].iscurrent == 1)}
+                <%:查询中...%>
+            {else}
+                <%:未启用%>
+            {/if}
+            </span>
+            <span class="uptime"></span>
+        </span>
+    </td>
+    <td>
+        <div class="conn-opt conn-opt-1">
+            <button class="btn btn-primary btn-block btn-conn-stop" data-id={$vpnlist[i].id}><span><%:断开连接%></span></button>
+        </div>
+        <div class="conn-opt conn-opt-2">
+            <button class="btn btn-primary btn-block btn-conn-cancel" data-id={$vpnlist[i].id}><span><%:取消连接%></span></button>
+        </div>
+        <div class="conn-opt conn-opt-3">
+            <button class="l btn btn-dft btn-conn-start" data-id={$vpnlist[i].id}><span><%:连接%></span></button>
+            <button class="l btn btn-dft btn-edit" data-id={$vpnlist[i].id}><span><%:编辑%></span></button>
+            <button class="r btn btn-dft btn-del" data-id={$vpnlist[i].id}><span><%:删除%></span></button>
+        </div>
+        <div class="conn-opt conn-opt-4">
+            <button class="l btn btn-dft btn-conn-start" data-id={$vpnlist[i].id}><span><%:重连%></span></button>
+            <button class="l btn btn-dft btn-edit" data-id={$vpnlist[i].id}><span><%:编辑%></span></button>
+            <button class="r btn btn-dft btn-del" data-id={$vpnlist[i].id}><span><%:删除%></span></button>
+        </div>
+    </td>
+</tr>
+{/for}
+{else}
+<tr>
+    <td colspan="6" class="center"><%:没有设置信息%></td>
+</tr>
+{/if}
+</script>
+<script type="tmpl/html" id="tmplErrtip">
+<div class="status-err-tips">
+    <span class="arrow"></span>
+    {$cont}
+</div>
+</script>
+
+
+<script type="tmpl/html" id="tmplAddList">
+    <div class="dialog-listadd-form-wrap">
+        <form  class="form" id="listAdd">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><%:设备名称%></th>
+                        <th width="90"><%:状态%></th>
+                        <th><%:MAC地址%></th>
+                        <th width="30"><%:操作%></th>
+                    </tr>
+                </thead>
+                <tbody id="dialogdeviceslist">
+                    <tr>
+                        <td colspan="4"><%:正在查询中...%></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary" id="listAddSubmit"><span><%:确定%></span>
+                </button>
+                <button type="submit" class="btn btn-dft" id="listAddClose"><span><%:取消%></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</script>
+<script type="tmpl/html" id="tmplDevice">
+    <tr>
+        <td>{$name}</td>
+        <td>{$status}</td>
+        <td>{$mac}</td>
+        <td>
+            <input class="deviceinput" type="checkbox" name="nowmac" value="{$mac}" />

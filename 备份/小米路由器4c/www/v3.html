@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta charset="utf-8">
+    <title>访客Wi-Fi_v3</title>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/sns_wifi_share_v3/css/style.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/dist/ads_flow_v3/css/index.css"/>
+    <link rel="stylesheet" type="text/css" href="//s.miwifi.com/dist/ads_flow_v3/css/style.css"/>
+    <script type="text/javascript">
+        // SNS协议参数配置
+        var CONF = {
+            appid: 'wxc3de7525dd792beb',
+            devicetype: 'gh_deffce86b61f',
+            deviceid: '',
+            token: '',
+            headurl: '',
+            clientinfo: '',
+            ssid: '',
+            disable_ad: true
+        };
+
+        var SNSenable = [];
+        //var SNSenable = ['wechat', 'direct_request', 'wifirent_wechat_pay'];
+
+        function ajax(params) {
+            params = params || {};
+            params.data = params.data || {};
+            var json = params.jsonp ? jsonp(params) : json(params);
+            // jsonp请求
+            function jsonp(params) {
+                //创建script标签并加入到页面中
+                var callbackName = params.jsonp;
+                var head = document.getElementsByTagName('head')[0];
+                // 设置传递给后台的回调参数名
+                params.data['callback'] = callbackName;
+                var data = formatParams(params.data);
+                var script = document.createElement('script');
+                head.appendChild(script);
+                //创建jsonp回调函数
+                window[callbackName] = function (json) {
+                    head.removeChild(script);
+                    clearTimeout(script.timer);
+                    window[callbackName] = null;
+                    params.success && params.success(json);
+                };
+                //发送请求
+                script.src = params.url + '?' + data;
+                //为了得知此次请求是否成功，设置超时处理
+                if (params.time) {
+                    script.timer = setTimeout(function () {
+                        window[callbackName] = null;
+                        head.removeChild(script);
+                        params.error && params.error({
+                            message: '超时'
+                        });
+                    }, time);
+                }
+            };
+            //格式化参数
+            function formatParams(data) {
+                var arr = [];
+                for (var name in data) {
+                    arr.push(encodeURIComponent(name) + '=' + encodeURIComponent(data[name]));
+                }
+                ;
+                // 添加一个随机数，防止缓存
+                arr.push('v=' + random());
+                return arr.join('&');
+            }
+
+            // 获取随机数
+            function random() {
+                return Math.floor(Math.random() * 10000 + 500);
+            }
+        }
+
+
+
+    </script>
+    <script src="http://s.miwifi.com/monitor/miwifi-monitor.js"></script>
+    <script>
+
+        //工具函数 cookie 手机类型
+        var tool = {
+            setCookie: function (key, value, days) {
+                var exp = new Date();
+                exp.setTime(exp.getTime() + days * 24 * 60 * 60 * 1000);
+                document.cookie = key + "=" + escape(value) + ";expires=" + exp.toGMTString();
+            },
+            getCookie: function (key) {
+                var arr, reg = new RegExp("(^| )" + key + "=([^;]*)(;|$)");
+                if (arr = document.cookie.match(reg))
+                    return unescape(arr[2]);
+                else
+                    return null;
+            },
+            removeCookie: function (name) {
+                var exp = new Date();
+                exp.setTime(exp.getTime() + (-1 * 24 * 60 * 60 * 1000));
+                var cval = Helper.getCookie(name);
+                document.cookie = name + "=" + cval + "; expires=" + exp.toGMTString();
+            },
+            isIos: function () {
+                var u = navigator.userAgent;
+                return !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/);
+            }
+        };
+        //判断手机类型 ios 走接口
+        var ready = tool.getCookie('ready');
+        if (tool.isIos()) {
+            if (ready == 1) {
+                console.log('ios且有cookie = 无需刷新页面');
+            } else {
+                MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_first"});
+                changeIos();
+            }
+        } else {
+            MIWIFI_MONITOR.log({element: "sns_wifi_v2_type=android"});
+        }
+
+
+        //ios需要 成功后刷新页面
+        function changeIos() {
+            ajax({
+                url: 'http://miwifi.com/cgi-bin/luci/api/misns/ios_ready',
+                //type: 'get',
+                //dataType: 'jsonp',
+                jsonp: 'jsonpCallback',
+                success: function (res) {
+                    console.log(res);
+                    if (res.code == 0) {
+                        tool.setCookie('ready', 1);
+                        MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_success_allow"});
+                        location.reload();
+                    } else {
+                        if (tool.getCookie('reload') == 1) {
+
+                        } else {
+                            tool.setCookie('reload', 1);
+                            MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_again"});
+                            location.reload();
+                        }
+                    }
+                },
+                error: function () {
+                    MIWIFI_MONITOR.log({element: "sns_wifi_v2_ios_no_allow"});
+                }
+            });
+        }
+
+
+
+    </script>
+</head>
+<body data-loading="false">
+<div class="loadings" style="display: block;">
+    <div class="spinner">
+        <div class="spinner-container container1">
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+            <div class="circle3"></div>
+            <div class="circle4"></div>
+        </div>
+        <div class="spinner-container container2">
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+            <div class="circle3"></div>
+            <div class="circle4"></div>
+        </div>
+        <div class="spinner-container container3">
+            <div class="circle1"></div>
+            <div class="circle2"></div>
+            <div class="circle3"></div>
+            <div class="circle4"></div>
+        </div>
+    </div>
+</div>
+<div class="bg snsconnect" id="snsconn

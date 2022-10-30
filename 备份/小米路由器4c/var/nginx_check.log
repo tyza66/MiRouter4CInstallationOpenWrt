@@ -1,0 +1,15 @@
+Error while opening the file.
+: No such file or directory
+nginx: [emerg] "" usb root is  in /tmp/sysapihttpdconf/sysapihttpd.conf:308
+nginx: [warn] the "log_format" directive may be used only on "http" level in /tmp/sysapihttpdconf/sysapihttpd.conf:328
+nginx: [warn] the "log_format" directive may be used only on "http" level in /tmp/sysapihttpdconf/sysapihttpd.conf:351
+/sbin/uci: Entry not found
+/sbin/uci: Entry not found
+/sbin/uci: Entry not found
+nginx: the configuration file /tmp/sysapihttpdconf/sysapihttpd.conf syntax is ok
+2019/05/13 18:17:14 [emerg] 1953#0: Initializing MiWiFi toolbar shared context...
+2019/05/13 18:17:14 [emerg] 1953#0: Unable to open rule file /tmp/rr/xqsystmp
+2019/05/13 18:17:14 [emerg] 1953#0: Unable to close rule file /tmp/rr/xqsystmp
+2019/05/13 18:17:14 [emerg] 1953#0: Unable to initialize MiWiFi toolbar shared context
+nginx: configuration file /tmp/sysapihttpdconf/sysapihttpd.conf test is successful
+ngx_http_load_usb

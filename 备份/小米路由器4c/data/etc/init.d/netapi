@@ -1,0 +1,48 @@
+#!/bin/sh /etc/rc.common
+
+#for test, activate later
+START=78
+SERVICE_DAEMONIZE=1
+SERVICE_USE_PID=1
+SERVICE_WRITE_PID=1
+SERVICE_MATCH_EXEC=""
+SERVICE_DEBUG=""
+SERVICE_QUIET="1"
+
+EXTRA_COMMANDS="/usr/sbin/netapi"
+EXECMD="/usr/sbin/netapi"
+
+start() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    export PROCNUM='1'
+    /usr/sbin/supervisord start
+    return $?
+}
+
+stop() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord stop
+    return $?
+}
+
+#running: 0, dead, 1, alive
+is_running(){
+    status
+}
+
+#status: 0, in-actived, 1, actived
+status(){
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord status
+}
+
+restart(){
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord restart
+    return $?
+}
+

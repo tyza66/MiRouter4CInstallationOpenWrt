@@ -1,0 +1,35 @@
+#!/bin/sh
+PPP_IPPARAM="$6"
+lockfile="/var/run/ppp-up.lock"
+
+. /lib/netifd/netifd-proto.sh
+
+ppp_lock() {
+    trap "lock -u $lockfile; exit 0" SIGHUP SIGINT SIGTERM
+    # try for some seconds
+    for i in $(seq 1 5); do
+        lock -n $lockfile && return 0
+        sleep 1
+    done
+    return 1
+}
+
+ppp_unlock() {
+    lock -u $lockfile
+}
+
+ppp_lock && {
+    logger -p9 -t ppp "ppp6-up update interface, $@"
+    proto_init_update "$IFNAME" 1 1
+    proto_set_keep 1
+    [ -n "$PPP_IPPARAM" ] && {
+        [ -n "$LLLOCAL" ] && proto_add_ipv6_address "$LLLOCAL" 128
+    }
+    proto_send_update "$PPP_IPPARAM"
+
+    ppp_unlock
+
+    return 0
+}
+
+logger -p9 -t ppp "ppp6-up NOT update interface for no locker, $@"

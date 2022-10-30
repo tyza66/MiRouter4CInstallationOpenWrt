@@ -1,0 +1,17 @@
+config core 'version'
+	# ROM ver
+	option ROM '2.13.82'
+	# channel
+	option CHANNEL 'current'
+	# hardware platform R1AC or R1N etc.
+	option HARDWARE 'R4CM'
+	# CFE ver
+	option UBOOT '1.0.0'
+	# Linux Kernel ver
+	option LINUX '0.0.1'
+	# RAMFS ver
+	option RAMFS '0.0.1'
+	# SQUASHFS ver
+	option SQAFS '0.0.1'
+	# ROOTFS ver
+	option ROOTFS '0.0.1'

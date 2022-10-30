@@ -1,0 +1,37 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006-2011 OpenWrt.org
+
+#01 is fstab
+START=02
+
+miwifi_crash_syslog_conf_init() {
+	KOPATH="/lib/modules/$(uname -r)/crash_syslog.ko"
+	[ -f "$KOPATH" ] || return 0
+
+	insmod "$KOPATH"
+	[ -e /proc/xiaoqiang/xq_syslog ] || return 0
+
+	# Has crash syslog capability. modify config
+	grep -q xq_syslog /etc/syslog-ng.conf
+	[ "$?" = "0" ] && return 0
+
+	cp /etc/syslog-ng-cs.conf /etc/syslog-ng.conf
+}
+
+start() {
+	[ -f /etc/syslog-ng.conf ] || return 1
+
+	miwifi_crash_syslog_conf_init
+
+	echo -1000 > /proc/$$/oom_score_adj
+	service_start /usr/sbin/syslog-ng
+	return $?
+}
+
+stop() {
+	service_stop /usr/sbin/syslog-ng
+}
+
+reload() {
+	service_reload /usr/sbin/syslog-ng
+}

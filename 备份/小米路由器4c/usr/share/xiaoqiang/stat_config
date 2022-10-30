@@ -1,0 +1,5 @@
+config stat_config 'api'
+        option API_STAT_URL '/action/v2/c/'
+        option API_PAIR_URL '/server_side_verify'
+config stat_config 'log'
+        option LOG_CRASH_URL '/log/crash/'

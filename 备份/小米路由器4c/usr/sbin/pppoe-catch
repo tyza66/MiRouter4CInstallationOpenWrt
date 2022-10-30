@@ -1,0 +1,91 @@
+#!/bin/sh
+
+SERVER_NAME_FILE='/tmp/state/pppoe-service-name'
+PAP_FILE='/tmp/state/pppoe-server-pap'
+pppoecatchlock="/var/run/pppoecatch.lock"
+
+usage () {
+    echo "A helper script using dummy PPPoE server to find out client's dial-up config"
+    echo "usage: $0 start <timeout>"
+    echo -e "\tReturn zero when success, non-zero mean failed."
+    echo -e "\tAuthentication info can be found in $PAP_FILE"
+    echo -e "\tService Name can be found in $SERVER_NAME_FILE"
+    exit 1
+}
+
+_locked="0"
+################### lock ###################
+pppoecatch_trylock()
+{
+    trap "lock -u $pppoecatchlock; exit 1" SIGHUP SIGINT SIGTERM
+    lock -n $pppoecatchlock
+    [ $? == 1 ] && _locked="1"
+    return $?
+}
+
+pppoecatch_unlock()
+{
+    lock -u $pppoecatchlock
+}
+
+################### dnsd ###################
+
+cleanup() {
+    rm -f $SERVER_NAME_FILE
+    rm -f $PAP_FILE
+    killall -9 pppoe-server &>/dev/null
+    sleep 1
+}
+
+wait_timeout() {
+    timeout="$1"
+    timeout="${timeout:-40}"
+    while [ $timeout -gt 0 ]; do
+	if [ -f $PAP_FILE ]; then
+	    break
+	else
+	    hardware=$(uci -q get misc.hardware.model)
+	    if [ "$hardware" == "R4CM" ]; then
+                lan_up=$(/sbin/ethstatus |grep -e 2 -e 4 | grep up |wc -l)
+                if [ "$lan_up" == "0" ]; then
+	            break
+                fi
+	    fi
+	    sleep 1
+	fi
+	let timeout=timeout-1
+    done
+}
+start_pppoe() {
+    pppoecatch_trylock
+    [ "$_locked" == "1" ] && return;
+    cleanup
+    _ifname=$(uci -q get network.wan.ifname)
+    _ifname=${_ifname:-eth0.2}
+    pppoe-server -I $_ifname -I br-lan -k -S xiaomi
+    wait_timeout $1
+    killall -9 pppoe-server &> /dev/null
+    sleep 1
+    killall -9 pppoe-server &> /dev/null
+    [ -f $SERVER_NAME_FILE ] && echo "Service-Name: $(cat $SERVER_NAME_FILE)"
+    pppoecatch_unlock
+    if [ -f $PAP_FILE ]; then
+        echo "PPPoE:"
+	echo "$(cat $PAP_FILE)"
+	return 0
+    else
+	echo "can't find PPPoE request, restart try again"
+	return 1
+    fi
+}
+
+case "$1" in
+    start)
+	shift
+	start_pppoe "$1"
+    ;;
+    *)
+	usage
+    ;;
+esac
+exit "$?"

@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# ban specify mac address for half an hour(could specify in parameter)
+# usage: ban_admin ban <mac>
+
+rule_chain='bfd_admin'
+
+firewall_flush() {
+    iptables -F $rule_chain 2> /dev/null
+}
+
+firewall_del_mac() {
+    local mac=$1
+    for i in $(iptables -L "$rule_chain" --line-numbers -n | grep "$mac" | sort -r | cut -f 1 -d' ')
+    do
+	iptables -D "$rule_chain" "$i"
+    done
+}
+
+firewall_del_old() {
+    IFS=$'\n'
+    local _lines=$(iptables -S "$rule_chain" | cut -f 12,16 -d' ')
+    local _now=$(date +"%s")
+    for i in $_lines
+    do
+	local _mac=$(echo $i | cut -f 1 -d' ')
+	local _time=$(echo $i | cut -f 2 -d' ')
+	local _ts=$(date -u -D "%Y-%m-%dT%H:%M:%S" -d "$_time" +"%s")
+	[ $_now -gt $_ts ] && firewall_del_mac $_mac
+    done
+    return 0
+}
+
+get_stop_time() {
+    # ban half an hours by default
+    local BAN_SECONDS=${1:-1800}
+    # get ban stop time
+    local now_timestamp=$(date +"%s")
+    let stop_timestamp="$now_timestamp + $BAN_SECONDS"
+    stop_time=$(date -u -D "%s" -d "$stop_timestamp" +"%Y-%m-%dT%H:%M:%S")
+}
+
+firewall_renew() {
+    get_stop_time
+    local lines=$(iptables -S "$rule_chain" | grep 'DROP' | sed "s/datestop.*/datestop "$stop_time" -j DROP/")
+    iptables -F "$rule_chain"
+    IFS=$'\n'
+    # replace same mac addr
+    for i in $lines
+    do
+	eval "iptables $i"
+    done
+}
+
+firewall_set() {
+    local mac="$1"
+    get_stop_time $2
+    if ! iptables -S "$rule_chain"
+    then
+	iptables -N "$rule_chain" && iptables -A input_lan_rule -j "$rule_chain"
+    fi
+    firewall_del_mac $mac
+    iptables -A $rule_chain -p tcp --dport 80 -m mac --mac-source "$mac" -m time --datestop $stop_time -j DROP
+}
+
+case $1 in
+    reload)
+	firewall_flush
+	firewall_set
+    ;;
+    ban)
+	[ -z "$2" ] && return 1
+	shift
+	trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+	lock /var/run/fw3.lock
+	firewall_del_old
+	firewall_set $@
+	lock -u /var/run/fw3.lock
+	;;
+    renew)
+	trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+	lock /var/run/fw3.lock
+	firewall_renew $@
+	lock -u /var/run/fw3.lock
+	;;
+    flush)
+	trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+	lock /var/run/fw3.lock
+	firewall_flush
+	lock -u /var/run/fw3.lock
+	;;
+esac

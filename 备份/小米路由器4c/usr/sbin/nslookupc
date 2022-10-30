@@ -1,0 +1,39 @@
+#!/bin/sh
+fqdn=$1
+server=$2
+timeout=$3
+
+usage(){
+	echo "USAGE: $0 <fqdn> <serverip> [timeout]"
+	echo "RETURN: 0 for ok, 1 for error."
+}
+
+if [ -z "$fqdn" ]
+then
+	usage
+	exit 1
+fi
+if [ -z "$server" ]
+then
+	usage
+	exit 1
+fi
+if [ -z "$timeout" ]
+then
+	timeout=5
+fi
+let timeout=$timeout+1
+let timeout=$timeout-1
+if [ $timeout -eq 0 ]
+then
+	timeout=5
+fi
+addrlist=`/usr/sbin/nslookupt $fqdn $server $timeout`
+ret=`echo "$addrlist" | awk -F'/' '{print $3}'`
+if [ -n "$ret" ]
+	then
+	exit 0
+fi
+exit 1
+#
+

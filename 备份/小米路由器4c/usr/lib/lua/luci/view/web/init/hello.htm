@@ -1,0 +1,150 @@
+<%
+local ver = require("xiaoqiang.XQVersion").webVersion
+local sys = require("xiaoqiang.util.XQSysUtil")
+local fun = require("xiaoqiang.common.XQFunction")
+local xqCountryCode = require "xiaoqiang.XQCountryCode"
+if sys.getInitInfo() then
+    luci.http.redirect(luci.dispatcher.build_url())
+else
+    fun.forkExec("lua /usr/sbin/cr_ip_conflict.lua >/dev/null 2>/dev/null")
+    sys.setSysPasswordDefault()
+end
+local hardware = string.lower( sys.getHardware() )
+local color = sys.getColor()
+local routerSrc = resource.."/web/img/topograph/".."router_"..hardware.."_".. color..".png"
+local lang = sys.getLang()
+local ccode = xqCountryCode.getBDataCountryCode()
+%>
+<%include("web/inc/head")%>
+    <title><%:小米路由器%></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+    <link href="<%=resource%>/web/css/guide.css?v=<%=ver%>" rel="stylesheet">
+    <style>
+        .agree{
+            width: 360px;
+            margin-left: -22px;
+        }
+        a.a2 {
+            color: #C9DCF0;
+            text-decoration: none;
+        }
+        a.a2:hover {
+            color: #C9DCF0;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="guide-cont-wrap">
+    <div class="for-middle-cont hello-page-cont">
+        <div id="guide-doc">
+            <div id="guide-hd">
+                <div class="mod-guide-hd">
+                    <div class="icons">
+                        <%if ccode == "US" then %>
+                        <img src="<%=resource%>/web/img/en/bg_login_tit_us.png?v=<%=ver%>" height="124">
+                        <%else%>
+                            <img src="<%=resource%>/web/img/<%=lang%>/bg_login_tit.png?v=<%=ver%>" height="124">
+                        <%end%>
+                        
+                    </div>
+                    <!-- <p><%:欢迎使用小米路由器%></p> -->
+                    <!-- <div class="languageset clearfix">
+                        <div class="form-item-select form-item-selectlang">
+                            <label class="k"></label>
+                            <span class="v">
+                            <select name="lang" id="lang" class="beautify selectlang" style="width:50px;">
+                            </select>
+                            </span>
+                        </div>
+                    </div> -->
+                </div>
+            </div>
+            <div id="guide-bd">
+                <div class="mod-guide-welcome">
+                    <!-- <p class="tit"><%:只需简单设置，立即开启全新智能路由器新体验！%></p> -->
+                    <div class="start">
+                        <p class="img"><img src="<%=routerSrc %>"></p>
+                        <p class="agree"><%:请先阅读%>
+                        <%if (ccode ~= 'US') then%>
+                            <a class="a1" target="_blank" href="<%=luci.dispatcher.build_url("web", "init", "agreement")%>"><%:《用户许可使用协议》%>
+                            </a>
+                        <%else%>
+                            <a class="a1" target="_blank" href="<%=luci.dispatcher.build_url("web", "init", "agreement")%>">
+                                <%:《用户协议》%>
+                            </a>
+                            <%:和%>
+                             <a class="a2" target="_blank" href="<%=luci.dispatcher.build_url("web", "init", "privacy")%>">
+                                <%:《隐私协议》%>
+                            </a>
+                        <%end%>
+                        <%:后选择是否同意%></p>
+                        <a id="btnStart" href="#" class="btn btn-primary btn-l"><span><%:同意，继续%></span></a>
+                         <%if (ccode ~= 'US') then%>
+                                 <p class="privacy"><label for="privacy"><input type="checkbox" name="privacy" id="privacy" checked="checked" autocomplete="off" /><%:加入%></label><a class="a1" target="_blank" href="<%=luci.dispatcher.build_url("web", "init", "privacy")%>"><%:《用户体验改进计划》%></a></p>
+                        <%end%>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <span class="for-middle"></span>
+</div>
+<%include("web/inc/g.js")%>
+<script>
+$(function(){
+    window.scrollTo(0, 1);
+    var elBtnStart = $( '#btnStart' ),
+        elAgree = $( '#agree' );
+
+    elBtnStart.on( 'wait', function() {
+        this.className = 'btn btn-primary-disabled';
+        $('span', this).text('<%:处理中...%>');
+    });
+
+    elBtnStart.on( 'click', function(e) {
+        e.preventDefault();
+        if( $(this).hasClass('btn-primary-disabled') ){
+            return;
+        }
+        var privacy = $('#privacy').is(':checked') ? 1 : 0;
+
+        var nonce = Encrypt.init(),
+            oldPwd = Encrypt.oldPwd( 'admin' ),
+            data = {
+                username: 'admin',
+                logtype: 2,
+                password: oldPwd,
+                nonce: nonce,
+                init: 1
+            };
+
+        elBtnStart.trigger( 'wait' );
+
+        $.getJSON( '<%=luci.dispatcher.build_url("api", "xqsystem", "login")%>', data, function( rsp ) {
+            if ( rsp.code == 0 ) {
+                 
+                window.location.href = rsp.url + '#privacy=' + privacy;
+                
+            } else {
+                window.location.reload();
+            }
+        });
+    });
+
+    // tag the first init
+    $.cookie('needguide', '1', {
+        path: '/',
+        expires: 7
+    });
+
+    // $.i18nSet('#lang').done(function(){
+    //     $.selectBeautify();
+    // });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+flag_ota_reboot
+restore_defaults
+flag_boot_type
+SN
+flag_ramfs_upstat
+flag_format_overlay
+ssh_en
+

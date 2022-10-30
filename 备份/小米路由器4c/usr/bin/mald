@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ $# != 1 ]; then
+  echo "Usage: mald {thread_num}"
+  exit 1;
+fi
+ulimit -s 1024
+nice -n -5 /usr/bin/messagingagent --handler_threads $1

@@ -1,0 +1,53 @@
+
+config miqos settings
+	option name 'settings'
+	option enabled 0
+	option upload 0
+	option download 0
+    option qos_auto 'auto'
+
+config system param
+    option name 'param'
+    option flow 'game,web,video,download'
+    option seq_prio 'auto'
+
+config limit guest
+    option name 'guest'
+
+config limit xq
+	option name 'xq'
+
+config group 00
+	option name '00'
+	option max_grp_uplink '0'
+	option max_grp_downlink '0'
+	option min_grp_uplink '0'
+	option min_grp_downlink '0'
+	option mode 'general'
+	list mac '00'
+
+config class p1
+	option name 'p1'
+	option tcp_ports '37,21:23,53,123,3389,3455,3478,5060:5063,5890:5892'
+	option udp_ports '37,22,53,67,123,500,3455'
+	option tos 'Minimize-Delay'
+
+config class p2
+	option name 'p2'
+	option tcp_ports '80,443,1710,2222,8000,8080'
+	option udp_ports '2222,3389,8000,8080'
+	option tos 'Minimize-Cost'
+
+config class p3
+	option name 'p3'
+	option tcp_ports '25,110,139,143,220,585,993,995'
+	option udp_ports '110,143,220,585,993,995'
+	option tos 'Maximize-Reliability'
+
+config class p4
+	option name 'p4'
+	option tcp_ports '20,69'
+	option udp_ports '445'
+	option tos ''
+
+

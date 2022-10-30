@@ -1,0 +1,94 @@
+<%
+	local lanIp = require("xiaoqiang.XQVersion").webDefaultHost
+%>
+<script>
+// reboot
+var global_api_reboot = {
+	url : '<%=luci.dispatcher.build_url("api", "xqsystem","reboot")%>',
+	param : {"client":"web"}
+};
+function reboot_window( needconfirm ) {
+	console.log( needconfirm );
+	var reboot = function(){
+			$.getJSON( global_api_reboot.url, global_api_reboot.param, function( rsp ) {
+				if( rsp.code !== 0 ){
+					$.alert( rsp.msg ).time( 1.5*1000 );
+				} else {
+					var ip = rsp.lanIp[0].ip;
+					rebootWait( {
+						lanIp : ip,
+						action : '<%:重启路由器%>',
+						refresh : true
+					} );
+				}
+			});
+		};
+	if ( typeof( needconfirm ) !== "undefined" && needconfirm === false ) {
+		reboot();
+		return;
+	}
+	$.confirm('<%:确定重启路由器，重启将断开和小米路由器的连接。%>',function () {
+			var dlg = this;
+			reboot();
+			dlg.close();
+			return false;
+		});
+}
+// shutdown
+function shutdown_window(){
+	$.confirm('<%:是否确定关闭路由器，操作将断开和小米路由器的连接。%>', function () {
+			$.getJSON( '<%=luci.dispatcher.build_url("api", "xqsystem","shutdown")%>', {}, function( rsp ){
+				if( rsp.code !== 0 ){
+					$.alert(rsp.msg).time( 1.5*1000 );
+				} else {
+					$.loadingDialog({
+						title: '<%:关闭路由器%>',
+						content: '<%:关机中，请等待路由器指示灯熄灭后再断开电源%>'
+					});
+				}
+			});
+		});
+}
+//reset
+function reset_window( format ){
+
+	var reset = (function( format ){
+		var requestURL = '<%=luci.dispatcher.build_url("api", "xqsystem","reset")%>',
+			requestData = {
+				format: format ? 1 : 0
+			},
+			wait = function(){
+				rebootWait( {
+					action : '<%:恢复出厂设置%>',
+					refresh : true,
+					lanIp: '<%=lanIp%>'
+				} );
+			},
+			clearCookies = function (){
+				var keys = document.cookie.match(/[^ =;]+(?=\=)/g);
+				if ( keys ) {
+					for (var i = keys.length; i--;){
+						document.cookie = keys[i]+'=0;path=/;expires=' + new Date(0).toUTCString();
+					}
+				}
+			};
+
+		return function(){
+			$.getJSON( requestURL , requestData, function( rsp ) {
+				if ( rsp.code !== 0 ) {
+					$.alert( rsp.msg ).time( 3*1000 );
+				}else{
+					// clear cookies
+					clearCookies();
+					//block wait
+					wait();
+				}
+			});
+		}
+	})( format );
+
+	$.confirm('<%:确定要恢复出厂设置让小米路由器回到初始状态？%>', function(){
+		reset();
+	});
+}
+</script>

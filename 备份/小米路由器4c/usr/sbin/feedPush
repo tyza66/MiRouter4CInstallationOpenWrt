@@ -1,0 +1,9 @@
+#!/usr/bin/env lua
+
+local pushhelper = require("xiaoqiang.XQPushHelper")
+
+local input = arg[1]
+
+if input then
+    pushhelper.push_request(input)
+end

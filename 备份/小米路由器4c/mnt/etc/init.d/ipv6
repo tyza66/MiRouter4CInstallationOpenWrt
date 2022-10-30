@@ -1,0 +1,161 @@
+#!/bin/sh /etc/rc.common
+
+#such ipv6 enable should be invoked before other-settings
+
+START=18
+
+EXTRA_COMMANDS=" on off check_enabled"
+EXTRA_HELP=" on/off         enable/disable ipv6 features"
+
+#as default, we will enable ipv6 on LAN
+
+start(){
+    #start
+    uci -q batch <<EOF
+delete network.guest.ip6assign
+delete network.guest.ip6class
+set network.lan.ip6assign=64
+delete network.lan.ip6class
+add_list network.lan.ip6class="ifb"
+commit network
+EOF
+
+    #enable firewall to filter ipv6
+    uci -q set firewall.@defaults[0].disable_ipv6=0
+
+    refresh_ipv6
+
+    return 0
+}
+
+#just fresh v6 related config
+refresh_ipv6() {
+    local ifaces
+    local enabled
+    local encfg
+    enabled=0
+    old_cfg_enabled=`uci -q get ipv6.settings.enabled`
+    ifaces=`uci -q get ipv6.settings.if_off`
+    for iface in $ifaces ; do
+        reset_ipv6 $iface
+    done
+
+    ifaces=`uci -q get ipv6.settings.if_on`
+    for iface in $ifaces ; do
+        set_ipv6 $iface
+        enabled=1
+    done
+
+    uci -q set ipv6.settings.enabled=$enabled
+    uci commit ipv6
+
+    #if just opened or closed, return 1
+    [ x"$old_cfg_enabled" != x"$enabled" ] && return 0
+
+    return 1
+}
+
+stop() {
+    return 0
+}
+
+on(){
+    local iface
+    iface=$1
+    [ -z "$iface" ] && return 0
+
+    #if ipv6 enabled for such interface, just return
+    check_enabled $iface && return 0
+
+uci -q batch <<EOF
+del_list ipv6.settings.if_on=$iface
+add_list ipv6.settings.if_on=$iface
+del_list ipv6.settings.if_off=$iface
+commit ipv6
+EOF
+
+    refresh_ipv6
+
+    ubus call network reload
+    return 0
+}
+
+off(){
+    local iface
+    iface=$1
+    [ -z "$iface" ] && return 0
+
+    #if ipv6 enabled for such interface, just return
+    check_enabled $iface || return 0
+
+uci -q batch <<EOF
+del_list ipv6.settings.if_off=$iface
+add_list ipv6.settings.if_off=$iface
+del_list ipv6.settings.if_on=$iface
+commit ipv6
+EOF
+
+    refresh_ipv6
+    ubus call network reload
+    return 0
+}
+
+set_ipv6(){
+    iface=$1
+    [ -z "$iface" ] && return 0
+
+    vifname=`uci -q get network.${iface}`
+    [ -n "$vifname" ] && {
+    #6iface
+    uci -q batch <<EOF
+set network.${iface}6=interface
+set network.${iface}6.ifname=@${iface}
+set network.${iface}6.proto=dhcpv6
+commit network
+EOF
+
+    }
+
+    # lan filter
+    uci -q batch <<EOF
+del_list network.lan.ip6class=${iface}6
+add_list network.lan.ip6class=${iface}6
+commit network
+EOF
+
+    return 0
+}
+
+reset_ipv6(){
+    iface=$1
+    [ -z "$iface" ] && return 0
+    #reset ipv6
+uci -q batch <<EOF
+delete network.${iface}6
+del_list network.lan.ip6class=${iface}6
+commit network
+EOF
+
+    return 0
+}
+
+check_enabled(){
+    iface=$1
+    [ -z "$iface" ] && return 0
+
+
+    cfg_enabled=`uci -q get ipv6.settings.enabled`
+    [ x"$cfg_enabled" != "x1" ] && return 1
+
+    ifaces=`uci -q get ipv6.settings.if_on`
+    for i in ${ifaces} ; do
+        if [ x"$i" == x"$iface" ]; then
+            #enabled
+            return 0
+        fi
+    done
+
+    # not enabled
+    return 1
+}
+

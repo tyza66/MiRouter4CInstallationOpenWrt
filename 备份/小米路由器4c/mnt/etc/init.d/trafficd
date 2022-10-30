@@ -1,0 +1,85 @@
+#!/bin/sh /etc/rc.common
+
+#for test, activate later
+START=77
+
+EXTRA_COMMANDS="/usr/sbin/trafficd"
+EXECMD="/usr/sbin/trafficd"
+PROC_FILE="/proc/sys/net/ipv4/ipaccount/if_mapping"
+
+init_dev() {
+    #check ifname mapping 1stly
+    [ -f "$PROC_FILE" ] || return 0
+
+    #lan dev
+    if_lan=$(uci -q get network.lan.ifname)
+    [ -z "$if_lan" ] && if_lan="eth0"
+    #get parent-ifname only
+    if_lan=${if_lan%%.*}
+
+    #5G dev
+    if_wl_5g=$(uci -q get misc.wireless.ifname_5G)
+    [ -z "$if_wl_5g" ] && if_wl_5g="wl0"
+
+    #2.4G
+    if_wl_2g=$(uci -q get misc.wireless.ifname_2G)
+    [ -z "$if_wl_2g" ] && if_wl_2g="wl1"
+
+    #guest 2g
+    if_wl_guest=$(uci -q get misc.wireless.ifname_guest_2G)
+    [ -z "$if_wl_guest" ] && if_wl_guest="wl3"
+
+    echo "refresh ifname into ipaacount in [lan-dev 5g-wl 2.4g-wl wl-guest]"
+    echo "$if_lan $if_wl_5g $if_wl_2g $if_wl_guest"
+
+    # set lan dev of D01
+    hardware=$(uci -q get misc.hardware.model)
+    if [ "$hardware" == "D01" ]; then
+        if_lan="eth1 eth2 eth3"
+    fi
+
+    echo "$if_lan $if_wl_5g $if_wl_2g $if_wl_guest" >"$PROC_FILE"
+
+    return 0
+}
+
+start() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    export PROCNUM='1'
+    /usr/sbin/supervisord start
+
+    #update ifname into ipaccount
+    init_dev
+
+    [ -f /usr/sbin/http_info.sh ] && /usr/sbin/http_info.sh on
+    /etc/init.d/web_filter_record restart &
+    return $?
+}
+
+stop() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord stop
+    return $?
+}
+
+#running: 0, dead, 1, alive
+is_running() {
+    status
+}
+
+#status: 0, in-actived, 1, actived
+status() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord status
+}
+
+restart() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord restart
+    [ -f /usr/sbin/http_info.sh ] && /usr/sbin/http_info.sh on
+    return $?
+}

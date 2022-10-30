@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]><html class="ie6 oldie" lang="zh"><![endif]-->
+<!--[if IE 7]><html class="ie7 oldie" lang="zh"><![endif]-->
+<!--[if IE 8]><html class="ie8 oldie" lang="zh"><![endif]-->
+<!--[if gt IE 8]><!--> <html lang="zh"> <!--<![endif]-->
+<head>
+<meta http-equiv="x-ua-compatible" content="IE=9" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>小米路由器</title>
+<noscript>
+<meta http-equiv="refresh" content="0; url=/cgi-bin/luci/web" />
+</noscript>
+</head>
+<body>
+<script>
+function isIE(v){
+    var v = v || "",
+    tester = document.createElement('div');
+    tester.innerHTML = '<!--[if IE ' + v + ']><i></i><![endif]-->';
+    return !!tester.getElementsByTagName('i')[0];
+}
+var isMobile = {
+    Android: function() {
+        return navigator.userAgent.match(/Android/i);
+    },
+    BlackBerry: function() {
+        return navigator.userAgent.match(/BlackBerry/i);
+    },
+    iOS: function() {
+        return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+    },
+    Opera: function() {
+        return navigator.userAgent.match(/Opera Mini/i);
+    },
+    Windows: function() {
+        return navigator.userAgent.match(/IEMobile/i);
+    },
+    any: function() {
+        return (isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Opera() || isMobile.Windows());
+    }
+};
+if ( isIE(6) ) {
+    window.location.href="/cgi-bin/luci/web/ieblock";
+}else{
+    if(isMobile.Android()){
+        window.location.href="/cgi-bin/luci/web";
+    } else {
+        if (isMobile.any()) {
+            //mobile not android
+            window.location.href="/cgi-bin/luci/web";
+        }else{
+            //web
+            window.location.href="/cgi-bin/luci/web";
+        }
+    }
+}
+</script>
+</body>
+</html>

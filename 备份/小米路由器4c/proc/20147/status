@@ -1,0 +1,37 @@
+Name:	ash
+State:	S (sleeping)
+Tgid:	20147
+Pid:	20147
+PPid:	20056
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	32
+Groups:	0 
+VmPeak:	    1820 kB
+VmSize:	    1820 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	     508 kB
+VmRSS:	     508 kB
+VmData:	     368 kB
+VmStk:	     136 kB
+VmExe:	     500 kB
+VmLib:	     784 kB
+VmPTE:	      12 kB
+VmSwap:	       0 kB
+Threads:	1
+SigQ:	0/472
+SigPnd:	00000000000000000000000000000000
+ShdPnd:	00000000000000000000000000000000
+SigBlk:	00000000000000000000000000000000
+SigIgn:	00000000000000000000000004804004
+SigCgt:	00000000000000000000000000080002
+CapInh:	0000000000000000
+CapPrm:	0000001fffffffff
+CapEff:	0000001fffffffff
+CapBnd:	0000001fffffffff
+Cpus_allowed:	1
+Cpus_allowed_list:	0
+voluntary_ctxt_switches:	8
+nonvoluntary_ctxt_switches:	6

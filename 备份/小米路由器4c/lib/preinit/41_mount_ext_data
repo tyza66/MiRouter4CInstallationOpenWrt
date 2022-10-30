@@ -1,0 +1,29 @@
+#!/bin/sh
+# Copyright (C) 2006-2010 OpenWrt.org
+# Copyright (C) 2010 Vertical Communications
+
+find_mount_ext_data() {
+	cat /proc/mtd  | grep -wq data || return 0
+
+	hexdump  -C -n 8 $(find_mtd_part data)| awk 'NR<2 {print $2$3$4$5}' >> /dev/console
+	data_head=`hexdump  -C -n 8 $(find_mtd_part data)| awk 'NR<2 {print $2$3$4$5}'`
+	if [ "$data_head" = "ffffffff" ] ; then
+		echo "ext data head  $data_head"
+		nvram set  flag_format_ext_data=1
+	fi
+
+	mount "$(find_mtd_part data)" /userdisk/appdata -t jffs2
+	if [ $? -ne 0 ] ; then
+		mtd erase data
+		mount "$(find_mtd_part data)" /userdisk/appdata -t jffs2
+	fi
+
+	mtd -qq unlock data
+}
+
+do_mount_ext_data() {
+	find_mount_ext_data
+}
+
+boot_hook_add preinit_mount_root do_mount_ext_data
+

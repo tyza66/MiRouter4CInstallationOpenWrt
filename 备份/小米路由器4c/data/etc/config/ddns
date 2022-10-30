@@ -1,0 +1,2 @@
+config global 'ddns'
+    option status 'off'

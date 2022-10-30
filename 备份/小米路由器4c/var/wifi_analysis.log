@@ -1,0 +1,12 @@
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 1 - RECV AUTH] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="recv-auth", rssi="-29", status="0"
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 1 - SEND AUTH_RSP] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="mlme-auth", info="send auth resp(Success)", status="0"
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 2 - RECV ASSOC] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="recv-assoc", rssi="-29", Aid="1"
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 2 - SEND ASSOC RSP] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="mlme-assoc", status="0", Aid="1"
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 3 - EAPOL START] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="eapol-start"
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 3 - SEND EAPOL 1/4] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="send-eapol"
+2019-05-13T18:27:45+08:00 MT7628 kernel: wifi_log: [Class 3 - RECV EAPOL 2/4] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="recv-eapol"
+2019-05-13T18:27:46+08:00 MT7628 kernel: wifi_log: [Class 3 - SEND EAPOL 1/4] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="send-eapol"
+2019-05-13T18:27:46+08:00 MT7628 kernel: wifi_log: [Class 3 - RECV EAPOL 2/4] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="recv-eapol"
+2019-05-13T18:27:47+08:00 MT7628 kernel: wifi_log: [Class 3 - SEND EAPOL 1/4] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="send-eapol"
+2019-05-13T18:27:47+08:00 MT7628 kernel: wifi_log: [Class 3 - RECV EAPOL 2/4] - if="wl1", sta_mac="a2:38:79:d5:a0:02", bssid="50:d2:f5:f7:ab:ad", action="recv-eapol"
+2019-

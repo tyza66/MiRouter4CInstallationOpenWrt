@@ -1,0 +1,60 @@
+#!/bin/sh /etc/rc.common
+
+#for test, activate later
+
+EXTRA_COMMANDS="/usr/sbin/web_filter_record"
+EXECMD="/usr/sbin/web_filter_record"
+
+start() {
+    count=10
+    sleeptm=`cat /dev/urandom |head -c 30|md5sum | tr -d [0a-zA-Z- ]  2>/dev/null`
+    sleeptm=$((${sleeptm:0:8}%300))
+    echo "INFO: random web filter start."
+    echo "sleep $sleeptm for web filter start"
+    sleep $sleeptm
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    export PROCNUM='1'
+
+    while [ $count -ge 0 ]
+    do
+	/usr/bin/matool --method api_call --params /dsal/host_list > /tmp/web_config_list
+	if [ $? -eq 0 ]
+	    then
+	    /usr/sbin/supervisord start
+	    return $?
+	else
+	    count=`expr $count - 1`
+	    sleep 60
+	fi
+    done
+
+    return 1
+}
+
+stop() {
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord stop
+    return $?
+}
+
+#running: 0, dead, 1, alive
+is_running() {
+    status
+}
+
+#status: 0, in-actived, 1, actived
+status(){
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord status
+}
+
+restart(){
+    stop
+    sleep 1
+    start
+
+    return $?
+}

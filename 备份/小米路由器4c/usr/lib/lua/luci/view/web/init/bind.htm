@@ -1,0 +1,94 @@
+
+<%include("web/inc/head")%>
+    <title><%:小米路由器%></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+    <link href="<%=resource%>/web/css/login.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <div id="hd">
+    </div>
+    <div id="bd">
+
+        <div class="mod-bind  mod-bind-phone">
+                    <p class="tit font16"><%:只差一步,通过小米WiFi APP绑定路由器%></p>
+                    <div class="hr"></div>
+                     <ul class="info pic-line clearfix">
+                        <li>
+                            <div class="ico wifi"></div>
+                            <div>易用</div>
+                            <div class="des">全新小米WiFi APP 极简操作，享受生活</div>
+                        </li>
+                        <li>
+                            <div class="ico safe"></div>
+                             <div>安全</div>
+                            <div class="des">7x24小时安全防护 一键拉黑蹭网老王</div>
+                        </li>
+                        <li>
+                            <div class="ico gamespeedup"></div>
+                            <div>加速</div>
+                            <div class="des">提高带宽，游戏加速 团战胜人一筹</div>
+                        </li>
+                        <li>
+                            
+                            <div class="ico money"></div>
+                            <div>赚钱</div>
+                            <div class="des">分享WiFi赚点钱 欢迎老王来蹭网</div>
+                        </li>
+                    </ul>
+                    <a class="btn btn-primary btn-block" ><span id="bind"><%:继续%></span></a>
+                    <p class="tit font12"><%:推荐连接到新的无线服务后继续%></p>
+                </div>
+</div>
+
+</div>
+<%include("web/inc/g.js")%>
+<script>
+    var isMobile = {
+    Android: function() {
+        return navigator.userAgent.match(/Android/i);
+    },
+    BlackBerry: function() {
+        return navigator.userAgent.match(/BlackBerry/i);
+    },
+    iOS: function() {
+        return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+    },
+    Opera: function() {
+        return navigator.userAgent.match(/Opera Mini/i);
+    },
+    Windows: function() {
+        return navigator.userAgent.match(/IEMobile/i);
+    },
+    any: function() {
+        return (isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Opera() || isMobile.Windows());
+    }
+};
+$(function(){
+
+    $('#bind').on('click',function(){
+
+            if (isMobile.Android()) {
+                        window.location.href = 'miwifi://tab?tab=0&subtab=0';
+                        setTimeout(function(){
+                            $('body').append("<iframe id='ifr' style='display:none'></iframe>");
+                            $('#ifr').attr("src", "http://bigota.miwifi.com/xiaoqiang/client/xqapp_rom.apk");
+
+                        },2000);
+            }else if( isMobile.iOS() ){
+                        var ifr = document.createElement("iframe");
+                        ifr.src = "miwifi://tab?tab=0&subtab=0";
+                        ifr.style.display = "none"; 
+                        document.body.appendChild(ifr);
+                        window.setTimeout(function(){
+                          document.body.removeChild(ifr);
+                           window.location.href = "https://itunes.apple.com/cn/app/id859962702?mt=8&ls=1"; 
+                        },2000);
+                    }
+
+});
+});
+</script>
+</body>
+</html>

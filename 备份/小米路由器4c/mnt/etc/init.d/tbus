@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+
+START=79
+
+export PROCLINE="/sbin/tbusd -t -h 0.0.0.0 -p 784 >/tmp/ubus_log 2>&1"
+export PROCFLAG=${PROCLINE}
+
+start() {
+    mode=$(uci get xiaoqiang.common.NETMODE -q)
+
+    #donot startup tbus under wifiAPmode, lanAPmode, and D01 WHC_RE mode
+    if [ "$mode" != "whc_re" -a "$mode" != "wifiapmode" -a "$mode" != "lanapmode" ]; then
+        /usr/sbin/supervisord start
+    fi
+}
+
+stop() {
+    /usr/sbin/supervisord stop
+}

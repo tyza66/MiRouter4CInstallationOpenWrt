@@ -1,0 +1,4 @@
+IP address       HW type     Flags       HW address            Mask     Device
+192.168.31.97    0x1         0x2         a2:38:79:d5:a0:02     *        br-lan
+192.168.31.89    0x1         0x2         54:05:db:03:1d:00     *        br-lan
+192.168.31.9     0x1         0x0         38:68:93:8a:28:a2     *        br-lan

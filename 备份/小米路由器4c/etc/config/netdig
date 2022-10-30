@@ -1,0 +1,6 @@
+
+config config 'config'
+	option ip_list 'www.taobao.com www.21cn.com www.letv.com www.ifeng.com www.cntv.cn tv.sohu.com www.chinaz.com www.126.com news.qq.com www.csdn.net'
+	option max_delay '3600'
+	option count '4'
+

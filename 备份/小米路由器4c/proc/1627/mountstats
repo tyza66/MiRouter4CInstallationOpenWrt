@@ -1,0 +1,17 @@
+device rootfs mounted on / with fstype rootfs
+device /dev/root mounted on / with fstype squashfs
+device proc mounted on /proc with fstype proc
+device sysfs mounted on /sys with fstype sysfs
+device tmpfs mounted on /tmp with fstype tmpfs
+device tmpfs mounted on /dev with fstype tmpfs
+device devpts mounted on /dev/pts with fstype devpts
+device /dev/mtdblock9 mounted on /userdisk with fstype jffs2
+device /dev/mtdblock6 mounted on /data with fstype jffs2
+device /dev/mtdblock6 mounted on /etc with fstype jffs2
+device none mounted on /dev/cgroup/mem with fstype cgroup
+device none mounted on /dev/cgroup/net_cls with fstype cgroup
+device none mounted on /dev/cgroup/cpu with fstype cgroup
+device /dev/root mounted on /mnt with fstype squashfs
+device /dev/mtdblock6 mounted on /mnt with fstype jffs2
+device /dev/root mounted on /userdisk/appdata/chroot_file/lib with fstype squashfs
+device /dev/root mounted on /userdisk/appdata/chroot_file/usr/lib with fstype squashfs

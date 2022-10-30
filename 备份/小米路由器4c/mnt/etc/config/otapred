@@ -1,0 +1,5 @@
+
+config ota 'settings'
+	option enabled '1'
+	option auto '1'
+

@@ -1,0 +1,3 @@
+[ -f /usr/bin/trmd ] && /usr/bin/trmd -g
+ubus call eventservice dnsmasq_restart_notify -t 2
+/usr/sbin/dnsmasq --user=root -C /var/etc/dnsmasq.conf

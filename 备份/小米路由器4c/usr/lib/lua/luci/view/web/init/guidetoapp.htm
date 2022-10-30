@@ -1,0 +1,79 @@
+<%
+    local ver = require("xiaoqiang.XQVersion").webVersion
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local XQFunction = require("xiaoqiang.common.XQFunction")
+    local XQTopology = require("xiaoqiang.module.XQTopology")
+    local httpHost = luci.http.getenv("HTTP_HOST")
+    local hardware = string.lower( XQSysUtil.getHardware() )
+%>
+<%include("web/inc/head")%>
+    <title><%:小米路由器%></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+    <link href="<%=resource%>/web/css/login.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc" style="display:none;">
+    <div id="hd">
+    </div>
+    <div id="bd">
+
+        <div class="mod-login">
+            <div class="title">
+                欢迎使用小米路由器
+            </div>
+
+            <div class="detail">
+                下载小米WiFi APP管理路由器
+            </div>
+            <div class="download">
+                <div class="code"></div>
+            </div>
+            <ul class="info">
+                <li><div class="ico wifi"></div><div class="des">全新小米WiFi APP 极简操作，享受生活</div></li>
+                <li><div class="ico safe"></div><div class="des">7*24小时安全防护 一键拉黑蹭网老王</div></li>
+                <li><div class="ico gamespeedup"></div><div class="des">提高带宽，游戏加速 团战胜人一筹</div></li>
+                <li><div class="ico money"></div><div class="des">分享WiFi赚点钱 欢迎老王来蹭网</div></li>
+            </ul>
+            <div class="mod-ft">
+                <p>
+                    <a href="<%=luci.dispatcher.build_url("web", "init", "hello")%>
+                    ">暂不需要</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%include("web/inc/g.js")%>
+
+<script>
+    var isMobile = {
+    Android: function() {
+        return navigator.userAgent.match(/Android/i);
+    },
+    BlackBerry: function() {
+        return navigator.userAgent.match(/BlackBerry/i);
+    },
+    iOS: function() {
+        return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+    },
+    Opera: function() {
+        return navigator.userAgent.match(/Opera Mini/i);
+    },
+    Windows: function() {
+        return navigator.userAgent.match(/IEMobile/i);
+    },
+    any: function() {
+        return (isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Opera() || isMobile.Windows());
+    }
+},
+     hardware = '<%=hardware%>';
+
+    if( isMobile.Android() || isMobile.iOS() || hardware == "r3l" ||hardware == "r3a" || hardware == "r1cl" || hardware == "r4" || hardware == "r4c" || hardware == "r4cm")  {
+         window.location.href = "<%=luci.dispatcher.build_url("web", "init", "hello")%>";
+    }else {
+        $('#doc').show();
+    }
+
+</script>

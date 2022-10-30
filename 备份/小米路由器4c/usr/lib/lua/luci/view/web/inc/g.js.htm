@@ -1,0 +1,222 @@
+<%
+    local ver = require("xiaoqiang.XQVersion").webVersion
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local remote_addr = luci.http.getenv("REMOTE_ADDR")
+    local mac = luci.sys.net.ip4mac(remote_addr)
+    local romChannel = XQSysUtil.getChannel()
+    local romVersion = XQSysUtil.getRomVersion()
+    local xqCountryCode = require "xiaoqiang.XQCountryCode"
+
+    local uci = require("luci.model.uci").cursor()
+    local hardwareModel = tostring(uci:get("misc", "hardware", "model"))
+    local features = require("xiaoqiang.XQFeatures").FEATURES
+    local json = require("luci.json")
+
+    local deviceId = tostring(uci:get("messaging", "deviceInfo", "DEVICE_ID"))
+
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local color = XQSysUtil.getColor()
+    local routerSrc = resource.."/web/img/topograph/".."router_"..hardware.."_".. color..".png"
+
+    local XQFunction = require "xiaoqiang.common.XQFunction"
+    local netmod = XQFunction.getNetModeType()
+
+    local apiServerDomain = luci.util.trim(luci.util.exec("uci get /etc/config/miwifi.server.API"))
+    local trackUrl = "http://"..apiServerDomain.."/res_stat/track.gif"
+    local clickUrl = "http://"..apiServerDomain.."/res_stat/click.gif"
+    local ccode = xqCountryCode.getBDataCountryCode()
+%>
+<!--[if lt IE 7]>
+<script>
+try{ document.execCommand("BackgroundImageCache",false,true);} catch(e){}
+</script>
+<![endif]-->
+<div class="mask-menu" id="maskMenu" style="position:fixed;left:0;top:0; width:100%; height:100%; z-index:2; display:none;"></div>
+<div id="dropmenu" class="dropmenu" style="z-index:3; display:none;">
+    <ul>
+        <li><a href="#" id="toRename"><%:修改路由器名称%></a></li>
+        <%if netmod == 0 then%>
+        <li><a href="<%=luci.dispatcher.build_url("web","setting","upgrade")%>"><%:系统升级%></a></li>
+        <%else%>
+        <li><a href="<%=luci.dispatcher.build_url("web","apsetting","upgrade")%>"><%:系统升级%></a></li>
+        <%end%>
+        <li><a href="#" id="toDownloadClient"><%:下载客户端%></a></li>
+        <li><a href="#" id="toReboot"><%:重启%></a></li>
+        <%if features["system"]["shutdown"] == '1' then%>
+        <li><a href="#" id="toShutdown"><%:关机%></a></li>
+        <%end%>
+        <li class="last"><a href="<%=luci.dispatcher.build_url("web","logout")%>"><%:注销%></a></li>
+    </ul>
+</div>
+<div id="noticebar" class="noticebar" style="z-index:3; display:none;">
+    <i class="ico-arrow"></i>
+    <div class="content"></div>
+</div>
+<%include("web/inc/i18n.js")%>
+<script src="/js/jquery-1.8.3.js?v=<%=ver%>"></script>
+<script src="/js/qwrap.js?v=<%=ver%>"></script>
+<script src="/js/common.js?v=<%=ver%>"></script>
+<script src="/js/raphael.js?v=<%=ver%>"></script>
+<script src="/js/crypto-js/rollups/sha1.js?v=<%=ver%>"></script>
+<script src="/js/crypto-js/rollups/aes.js?v=<%=ver%>"></script>
+<script src="/js/valid.js?v=<%=ver%>"></script>
+<script src="<%=resource%>/web/js/selectbeautify.js?v=<%=ver%>"></script>
+<script src="<%=resource%>/web/js/jquery.dialog.js?v=<%=ver%>"></script>
+<script src="<%=resource%>/web/js/jquery.cookie.js?v=<%=ver%>"></script>
+<script>
+(function(){
+    var G_FEATURES = $.parseJSON('<%=json.encode(features)%>');
+    window['G_FEATURES'] = G_FEATURES;
+}())
+</script>
+<%include("web/inc/reboot.js")%>
+<script type="text/tmpl" id="tplrename">
+<div class="mod-rename-dlg">
+    <p class="img"><img src="<%=routerSrc %>"></p>
+    <div class="form-rename">
+        <form action="#" class="form" id="routerNameEdit">
+            <div class="form-item">
+                <label class="k"><%:路由器名称%></label>
+                <span class="v">
+                    <input type="text" name="routername" id="routername" class="ipt-text" autocomplete="off" datatype="bytetext" maxlength="24" reqMsg="<%:路由器名称%>" value="{$name}">
+                </span>
+                <em class="t"></em>
+            </div>
+            <div class="form-item">
+                <label class="k"><%:位置%></label>
+                <span class="v">
+                    <input type="text" name="locale" id="locale" class="ipt-text" autocomplete="off" datatype="bytetext" maxlength="24" reqMsg="<%:路由器位置%>" value="{$locale}">
+                </span>
+                <em class="t"></em>
+            </div>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary btn-l"><span><%:保存%></span></button>
+            </div>
+        </form>
+    </div>
+</div>
+</script>
+<script type="text/tmpl" id="tplshutdown">
+<div class="mod-reboot-dlg">
+    <p class="img"><img src="<%=resource%>/web/img/ico_shutdown.png"></p>
+    <p class="text"><%:关闭路由器将断开其他设备的数据访问和网络连接，之后便可以安全的断开电源。（再次启动需要手工连接电源）%></p>
+    <button id="shutdownAction" type="button" class="btn btn-primary btn-l"><span><%:关闭路由器%></span></button>
+</div>
+</script>
+<script type="text/tmpl" id="tplreboot">
+<div class="mod-shutdown-dlg">
+    <p class="img"><img src="<%=resource%>/web/img/ico_reboot.png"></p>
+    <p class="text"><%:路由器重启需要等待十几秒或更多时间，重启过程中将会断开网络连接，稍后将自动重新连接网络。%></p>
+    <button type="button" id="rebootAction" class="btn btn-primary btn-l"><span><%:重启路由器%></span></button>
+</div>
+</script>
+<script type="text/tmpl" id="tpldowncn">
+<div class="mod-downloadclient-dlg">
+    <table>
+        <tr>
+            <td>
+                <i class="ico-down-client ico-down-pc"></i>
+                <a href="http://bigota.miwifi.com/xiaoqiang/client/xqpc_client.exe"><%:PC客户端%></a>
+            </td>
+            <td class="c1"></td>
+            <td class="c2"></td>
+            <td>
+                <i class="ico-down-client ico-down-mac"></i>
+                <a href="http://bigota.miwifi.com/xiaoqiang/client/xqmac_client.dmg"><%:MAC客户端%></a>
+            </td>
+        </tr>
+        <tr class="last">
+            <td>
+                <i class="ico-down-client ico-down-andriod"></i>
+                <a href="http://www1.miwifi.com/pc2app_download.html"><%:手机客户端%></a>
+            </td>
+            <td class="c1"></td>
+            <td class="c2"></td>
+            <td>
+                <i class=" ico-down-code"></i>
+            </td>
+        </tr>
+    </table>
+</div>
+</script>
+<script type="text/tmpl" id="tpldownintl">
+    <img class="onlineimg" src-local="/xiaoqiang/web/img/2dcode.png" src="/xiaoqiang/web/img/code.png">
+    <p><%:手机扫描二维码安装客户端%></p>
+</script>
+<script>
+var DEBUG = false;
+if ( !window.console || DEBUG == false) {
+    window.console = {
+        log: function(){}
+    };
+}
+
+var Encrypt = {
+    key: 'a2ffa5c9be07488bbb04a3a47d3c5f6a',
+    iv: '64175472480004614961023454661220',
+    nonce: null,
+    init: function(){
+        var nonce = this.nonceCreat();
+        this.nonce = nonce;
+        return this.nonce;
+    },
+    nonceCreat: function(){
+        var type = 0;
+        var deviceId = '<%=mac%>';
+        var time = Math.floor(new Date().getTime() / 1000);
+        var random = Math.floor(Math.random() * 10000);
+        return [type, deviceId, time, random].join('_');
+    },
+    oldPwd : function(pwd){
+        return CryptoJS.SHA1(this.nonce + CryptoJS.SHA1(pwd + this.key).toString()).toString();
+    },
+    newPwd: function(pwd, newpwd){
+        var key = CryptoJS.SHA1(pwd + this.key).toString();
+        key = CryptoJS.enc.Hex.parse(key).toString();
+        key = key.substr(0, 32);
+        key = CryptoJS.enc.Hex.parse(key);
+        var password = CryptoJS.SHA1(newpwd + this.key).toString();
+        var iv = CryptoJS.enc.Hex.parse(this.iv);
+        var aes = CryptoJS.AES.encrypt(
+                password,
+                key,
+                {iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+            ).toString();
+        return aes;
+    }
+};
+
+var pingRouter = function( on, off, ip ){
+    var online = on || function(){},
+        offline = off || function(){},
+        host = ip || location.host,
+        imgUrl = 'http://' + host + '/xiaoqiang/web/img/logo.png',
+        time = 5000,
+        timecounter = 0,
+        img = null,
+        wait = function(){
+            console.log('pingRouter:wait');
+            offline();
+        },
+        done = function(){
+            console.log('pingRouter:done');
+            window.clearInterval( timer );
+            online();
+        },
+        loadImg = function( onload, onerror ){
+            img = new Image();
+            img.onload = onload;
+            img.onerror = onerror;
+            img.src = imgUrl+'?' + (+new Date());
+        },
+        timer = window.setInterval(function() {
+
+            if ( 'onLine' in navigator ) {
+                if ( navigator.onLine ) {
+                    loadImg(
+                        function(){
+                            done();
+                        }, function(){
+                            wait();
+                        }
+       

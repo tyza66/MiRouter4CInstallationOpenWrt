@@ -1,0 +1,55 @@
+<script>
+(function(){
+	$.sub( 'hwnat:get', function(evt, data){
+		var requestURL = '<%=luci.dispatcher.build_url("api", "misystem","hwnat_status")%>';
+		$.getJSON( requestURL, {}, function( res ){
+			if( res.code == 0 ){
+				if( res.status == 0 ){
+					$('#hwnatswitch').addClass( 'btn-switch-off' );
+				}else{
+					$('#hwnatswitch').addClass( 'btn-switch-on' );
+				}
+			}
+		});
+	} );
+	$.sub( 'hwnat:addEvent', function(evt, data){
+		var requestURL = '<%=luci.dispatcher.build_url("api", "misystem","hwnat_switch")%>';
+		var requestData = {};
+		$('#hwnatswitch').on( 'click', function(e){
+			e.preventDefault();
+			var self = this;
+			if( $(this).hasClass( 'btn-switch-off' ) ){
+				requestData.on = 1;
+				$.confirm('<%:此操作需要重启才能生效，是否提交?%>',
+				function(){
+					$.getJSON( requestURL, requestData, function(res){
+						if( res.code == 0 ){
+							rebootWait({
+								action: '<%:重启路由器%>',
+								refresh: true
+							});
+						}else {
+							$.alert( res.msg );
+						}
+					});
+				});
+			}else{
+				requestData.on = 0;
+				$.getJSON( requestURL, requestData, function(res){
+					if( res.code == 0 ){
+						$(self)
+						.removeClass('btn-switch-on')
+						.addClass('btn-switch-off');
+					}else{
+						$.alert( res.msg );
+					}
+				});
+			}
+		});
+	} );
+})();
+$(function(){
+	$.pub( 'hwnat:get' );
+	$.pub( 'hwnat:addEvent' );
+});
+</script>

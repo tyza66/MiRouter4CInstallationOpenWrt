@@ -1,0 +1,63 @@
+#!/usr/bin/env lua
+local posix = require("Posix")
+
+local cfg = {
+        ['postfile'] = "/tmp/postfile.dat",
+        ['postfilesize'] = 512,  -- kbyte
+        ['posturl'] = "http://netsp.master.qq.com/cgi-bin/netspeed",
+        ['geturl'] = "http://dlied6.qq.com/invc/qqdoctor/other/test32mb.dat",
+        ['nr'] = 40,        --Number of requests to perform
+        ['nc'] = 4,     --Number of multiple requests to make at a time
+        ['timelimit'] = 5,
+        ['timestep'] = 1,
+        ['ab'] = "/usr/bin/ab",
+        ['dd'] = "/bin/dd",
+        ['debug'] = 0
+    }
+
+function execa(cmd)
+    local p = io.popen(cmd)
+    local data = p:read("*a")
+    p:close()
+    return data
+end
+
+function execl(cmd)
+    local p = io.popen(cmd)
+    local data = p:read("*line")
+    p:close()
+    return data
+end
+
+function trim(s)
+    local from = s:match"^%s*()"
+    return from > #s and "" or s:match(".*%S", from)
+end
+
+
+local url = execl(string.format("curl -s --connect-timeout 2 -I  '%s'| grep Location | awk '{print $2}'", cfg.geturl))
+if url then
+    _, _, url = string.find(url, '(.*)&f=.*$')
+else
+    os.exit(1);
+end
+
+local getinfo = execa(string.format("%s -N -s %d -M %d -n %d -c %d '%s'",
+    cfg.ab, cfg.timestep, cfg.timelimit, cfg.nr, cfg.nc, url))
+
+os.execute(string.format("%s if=/dev/zero of=%s bs=1k count=%d >/dev/null 2>&1",
+    cfg.dd, cfg.postfile, cfg.postfilesize))
+if (posix.stat(cfg.postfile) == nil) then
+    print("create postfile error")
+    os.exit(1)
+end
+
+local postinfo =execa(string.format("%s -N -s %d -M %d -n %d -c %d -T 'multipart/form-data' -p %s '%s'",
+    cfg.ab, cfg.timestep, cfg.timelimit, cfg.nr, cfg.nc, cfg.postfile, cfg.posturl))
+os.remove(cfg.postfile)
+
+
+print(getinfo)
+print(postinfo)
+
+

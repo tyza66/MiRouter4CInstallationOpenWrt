@@ -1,0 +1,89 @@
+#!/usr/bin/lua
+local bit=  require "bit"
+local px =  require "Posix"
+local uci=  require 'uci'
+local io=   require 'io'
+local socket= require 'socket'
+local json= require 'json'
+
+local cfg_host='127.0.0.1'
+local cfg_port='1036'
+
+px.openlog("speedtest","np",LOG_USER)
+
+function logger(loglevel,msg)
+    px.syslog(loglevel,msg)
+end
+
+function print_r(root,ind)
+    local indent="    " .. ind
+
+    for k,v in pairs(root) do
+            if(type(v) == "table") then
+                    print(indent .. k .. " = {")
+                    print_r(v,indent)
+                    print(indent .. "}")
+            else
+                    print(indent .. k .. "=" .. v)
+            end
+    end
+
+end
+
+function cmd(action)
+    local con=socket.connect(cfg_host,cfg_port)
+    local idx=5
+    while not con and idx > 0 do      -- retry 5 times, about 5seconds
+        px.sleep(1)     --sleep 1 sec
+        con = socket.connect(cfg_host,cfg_port)
+        idx = idx - 1
+    end
+    if not con then
+        return json.decode('{"status":-1, "data":"cannot establish connection to auto speed test service."}')
+    end
+    local s,err = con:send(action..'\n')
+    -- logger(7,'send act: ' .. action)
+    if err then
+        -- logger(7, 'establish conn failed.')
+        return json.decode('{"status":-1}')
+    end
+
+    local data=''
+    while true do
+        local line, err = con:receive()
+        if not line then
+            if err == 'closed' then
+                con:close()
+                return json.decode(data)
+            else
+                -- logger(7,'receive err: ' .. err)
+                con:close()
+                return json.decode('{"status":-1}')
+            end
+        else
+            --logger(7,'receive line: ' .. line)
+            data = data .. line
+        end
+    end
+    con:close()
+    return json.decode('{"status":-1}')
+end
+
+function main()
+    local data=''
+    for i,v in ipairs(arg) do
+        data = data .. ' ' .. v
+    end
+
+    local str=cmd(data)
+    if str then
+        print("{")
+        print_r(str,"")
+        print("}")
+    else
+        print('No data.')
+    end
+end
+
+main()
+

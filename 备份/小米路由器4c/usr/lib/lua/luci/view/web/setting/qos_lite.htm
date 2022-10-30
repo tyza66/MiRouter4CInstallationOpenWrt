@@ -1,0 +1,74 @@
+<%
+--[[
+    Info    QoS Lite
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/qos.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include( "web/inc/header")%>
+    <div id="bd">
+        <!--  -->
+        <div class="mod-set mod-qos">
+            <div class="hd">
+                <h3><%:设备限速状态%></h3>
+                <div class="switch">
+                    <a data-enable="1" class="btn-switch btn-switch-on" id="btnqos" href="#"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <p><%:QoS是一种智能带宽分配功能，可以帮助你自动为各设备设置限速，让在线视频与网络游戏同时享有畅快体验！%></p>
+            </div>
+        </div>
+    </div>
+    <%include( "web/inc/footer")%>
+</div>
+<%include( "web/inc/g.js")%>
+<script>
+var modelQos = (function(){
+    // get Qos status
+    function qosStatus(){
+        $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "qos_info")%>', {}, function(rsp){
+            if (rsp.code == 0) {
+                var btnqos = $('#btnqos')[0];
+                if (rsp.status.on === 0) {
+                    btnqos.className = 'btn-switch btn-switch-off';
+                }else{
+                    btnqos.className = 'btn-switch btn-switch-on';
+                }
+            }
+        });
+    }
+
+    // switch QoS status
+    function qosSwitch(){
+        var btnqos = $('#btnqos');
+        btnqos.on('click', function(e){
+            e.preventDefault();
+            var st = $(this).hasClass('btn-switch-on') ? 0 : 1,
+                btn = this;
+            $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "qos_switch")%>', {'on': st}, function(rsp){
+                if (rsp.code == 0) {
+                    location.reload(1);
+                }
+            });
+        });
+    }
+
+    return {
+        init : function(){
+            qosStatus();
+            qosSwitch();
+        }
+    }
+}());
+$(function(){
+    modelQos.init();
+});
+</script>

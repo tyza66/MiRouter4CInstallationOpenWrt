@@ -1,0 +1,104 @@
+#!/bin/sh /etc/rc.common
+
+#for test, activate later
+START=99
+SERVICE_DAEMONIZE=1
+SERVICE_USE_PID=1
+SERVICE_WRITE_PID=1
+SERVICE_MATCH_EXEC=""
+SERVICE_DEBUG=""
+SERVICE_QUIET="1"
+
+EXTRA_COMMANDS="/usr/bin/elink"
+EXECMD="/usr/bin/elink"
+
+enable_elink(){
+	return
+        local cron_elink_status
+        cron_elink_status=`cat /etc/crontabs/root | grep test_add_ip.sh > /dev/null 2>&1 ; echo $?`
+        if [[ "$cron_elink_status" == "0" ]]; then
+        	echo "cron_elink_status has been elink status return"
+        else
+        	echo "set cron elink mode"
+        	echo "* * * * * /usr/sbin/test_add_ip.sh 192.168.31.1 >/dev/null" >> /etc/crontabs/root
+		/etc/init.d/cron restart
+        fi
+        return
+}
+
+disable_elink(){
+        local cron_elink_status
+        cron_elink_status=`cat /etc/crontabs/root | grep test_add_ip.sh > /dev/null 2>&1 ; echo $?`
+        if [[ "$cron_elink_status" == "0" ]]; then
+        	echo "disable elink mode"
+        	cat /etc/crontabs/root | grep -v test_add_ip.sh > /tmp/crontabs_root_tmp
+        	mv /tmp/crontabs_root_tmp /etc/crontabs/root
+		/etc/init.d/cron restart
+        else
+        	echo "cron_elink_status has not been elink status return"
+        fi
+        return
+}
+test_and_set_elink_mode(){
+        local elink_mode
+        elink_mode=`nvram get elink_en`
+        if [[ "$elink_mode" == "1" ]]; then
+        	echo "enable elink"
+        else
+        	echo "disable elink"
+        	disable_elink
+       	fi
+	/etc/init.d/cron restart
+       	return
+}
+
+start() {
+    local elink_enable
+    elink_enable=`nvram get elink_en`
+    if [[ "$elink_enable" == "1" ]]; then
+    	export PROCLINE="${EXECMD}"
+    	export PROCFLAG="${EXTRA_COMMANDS}"
+    	export PROCNUM='1'
+    	/usr/sbin/supervisord start
+    	return $?
+    else
+	disable_elink
+	return 0
+    fi
+}
+
+stop() {
+    disable_elink
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord stop
+    return $?
+}
+
+#running: 0, dead, 1, alive
+is_running(){
+    status
+}
+
+#status: 0, in-actived, 1, actived
+status(){
+    export PROCLINE="${EXECMD}"
+    export PROCFLAG="${EXTRA_COMMANDS}"
+    /usr/sbin/supervisord status
+}
+
+restart(){
+    local elink_enable
+    elink_enable=`nvram get elink_en`
+    if [[ "$elink_enable" == "1" ]]; then
+	enable_elink
+    	export PROCLINE="${EXECMD}"
+    	export PROCFLAG="${EXTRA_COMMANDS}"
+    	/usr/sbin/supervisord restart
+    	return $?
+    else
+	disable_elink
+	return 0
+    fi
+}
+

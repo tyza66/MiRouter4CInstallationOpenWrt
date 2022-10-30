@@ -1,0 +1,6 @@
+2.4G
+scan_ralink_wifi(mt7628,mt7628,,)
+sync_uci_with_dat(mt7628,/etc/Wireless/mt7628/mt7628.dat,,)
+enable_ralink_wifi(mt7628,mt7628,,)
+ap  mi wl2
+enable_ralink_wifi(mt7628,mt7628,,) done

@@ -1,0 +1,352 @@
+#!/usr/bin/lua
+-- miqos 主框架
+
+local socket=require("socket")
+local io=   require 'io'
+local libunix= require 'socket.unix'
+local json= require 'json'
+local unsock=assert(libunix())
+
+-- 单一流的设备，比如电视/盒子，用来做设备最低带宽预留
+band_reserve_hosts={
+    changed=true,
+    ['video']={},
+    ['other']={},
+}
+
+-- 特殊设备优先级
+special_host_list={
+    host={
+    },
+    changed=false,
+}
+
+require "miqos.common"
+require "miqos.command"
+--require "miqos.rule_by_flow"
+require "miqos.rule_by_host"
+require "miqos.rule_by_prio"
+require "miqos.rule_by_service"
+require "miqos.rule_by_wangzhe"
+
+local QOS_CMD
+
+--read args
+QOS_VER='CTF'
+if #arg >= 1 then
+    if arg[1] == 'std' then
+        QOS_VER='STD'
+    elseif arg[1] == 'ctf' then
+        QOS_VER='CTF'
+    elseif arg[1] == 'fix' then
+        QOS_VER='FIX'
+    elseif arg[1] == 'hwqos' then
+        QOS_VER='HWQOS'
+    else
+        QOS_VER='FIX'
+        QOS_CMD=arg
+    end
+else
+    clean_sock()
+    logger(3,'======== Process Exit. =====')
+    os.exit(0)
+end
+
+-----全局定义-----------------
+
+g_group_def=nil
+g_class_def={}
+
+-- TODO: 暂时关闭，需要看测试结果
+g_enable_stab=false
+
+---
+g_leaf_type='fq_codel'   --,sfq,fq_codel
+--g_leaf_type='sfq'   --,sfq,fq_codel
+
+
+function clean_sock()
+    unsock:close()
+    util.exec('rm -rf ' .. cfg.server.path)
+end
+
+
+-- 清除规则，并退出服务
+function system_exit()
+    cleanup_system()
+    clean_sock()
+    logger(3,'======== Process Exit. =====')
+    os.exit(0)
+end
+
+function fix_system_exit()
+    cleanup_system()
+    fix_set_leteng_qos()
+    clean_sock()
+    logger(3,'======== Process Exit. =====')
+    os.exit(0)
+end
+
+-- 系统初始化
+local function system_init()
+
+    -- 将配置文件copy到tmp内存中,并初始化cursor
+    if not cfg2tmp() then
+        return false
+    end
+
+    -- 读取网络配置
+    if not read_network_conf() then
+        logger(3, 'failed to read network config!')
+        return false
+    end
+
+    -- read_qos_config()
+
+    -- SIGTERM to clear and exit
+    px.signal(px.SIGTERM,
+        function ()
+            logger(3,'signal TERM to stop miqos.')
+            system_exit()
+        end)
+
+    px.signal(px.SIGINT,
+        function ()
+            logger(3,'signal INT to stop miqos.')
+            system_exit()
+        end)
+
+    return true
+end
+
+g_ifb_status=''
+local function check_ifb_up()
+    if QOS_VER == 'HWQOS' then
+        return true
+    end
+    -- 如果ifb状态未UP,则尝试UP
+    if g_ifb_status ~= UP then
+        --check if dev ifb0 is up
+        local ifb_up = '/usr/sbin/ip link set ifb0 up '
+        local ifb_check = '/usr/sbin/ip link show ifb0 |grep "state DOWN"'
+        local ret = util.exec(ifb_up)
+        ret = util.exec(ifb_check)
+        if ret == '' then
+            g_ifb_status = UP
+        else
+            logger(3, 'ifb0 is not up, wait for next link up.')
+            return false    -- 继续下一次set link up
+        end
+    end
+    return true
+end
+
+-- 更新调用QoS
+local function update_qos_rules()
+    local ret=false
+    if not check_ifb_up() then return false end
+
+    -- 读取配置文件（TODO: 这里需要添加一个触发开关，只有通过命令行触发的配置改变才能激发重读qos config）
+    if not read_qos_config() then
+        -- logger(3,'config no changed.')
+        return false
+    end
+
+    --logger(3, '------update_qos_rules cur_qdisc: '..cur_qdisc)
+    if qdisc[cur_qdisc].changed() or old_qdisc ~= cur_qdisc or cfg.wangzhe.cleanother then
+        if cfg.wangzhe.cleanother then
+            logger(3, 'wangzhe game mode off,need clean qdisc')
+            ret = qdisc[cur_qdisc].apply(old_qdisc,cfg.bands,cfg.DEVS,true)
+            cfg.wangzhe.cleanother=false
+        else
+            ret = qdisc[cur_qdisc].apply(old_qdisc,cfg.bands,cfg.DEVS,false)
+        end
+
+        cfg.qdisc.old = cfg.qdisc.cur
+    end
+
+    return ret
+end
+
+-- 为FIX-版本更新简化QoS
+local function update_fix_qos_rules()
+
+    -- 读取配置文件
+    if not read_qos_config() then
+        return false
+    end
+
+    if cfg.enabled.flag == '0' then    -- clean rule & exit if qos off
+        logger(3,'fix system exit ')
+        fix_system_exit()
+    end
+
+    if qdisc[cur_qdisc] then
+        if qdisc[cur_qdisc].apply then
+            return qdisc[cur_qdisc].apply(nil,cfg.bands,cfg.DEVS,true,true)
+        end
+    else
+        logger(3, 'service-mode-qdisc not exist.')
+    end
+    return false
+end
+
+
+-- 读取uptime计数
+local function get_uptime()
+    local pp=io.open('/proc/uptime')
+    local n=pp:read('*n')
+    pp:close()
+    return math.ceil(n)
+end
+
+-- 主循环
+local function main_loop()
+
+    util.exec('rm -rf ' .. cfg.server.path)
+    assert(unsock:bind(cfg.server.path))
+    assert(unsock:listen())
+    unsock:settimeout(1)
+
+    local now_time = get_uptime()
+    local next_qos_time = now_time
+    local delta
+    local gc_timer=0
+
+    -- tables for select event
+    local set=newset()
+    set:insert(unsock)    -- add 'server' into select events
+
+    while true do
+
+        now_time = get_uptime()       -- 读取当前的uptime ticks
+        if now_time >= next_qos_time then
+            if cfg.wangzhe.modeon then
+                if cfg.wangzhe.changed then
+                    qdisc['wangzhe'].apply(cfg.DEVS, cfg.wangzhe.cleanflag)
+                end
+            else
+                if update_qos_rules() then
+                    gc_timer = gc_timer + 1
+                    if gc_timer >= 180 then
+                        gc_timer = 0
+                        local tmp_cnt = collectgarbage('count')
+
+                        logger(3,p_sysinfo())
+                    end
+
+                    -- 更新tc的counters,便于直接调用返回
+                    update_counters(cfg.DEVS)
+                end
+            end
+
+            next_qos_time = now_time + cfg.check_interval      -- 更新下一次update QOS检测时间
+        end
+
+        delta = next_qos_time - now_time
+        if delta > cfg.check_interval then
+            logger(3, "Warning!!! plz check Update QoS delta = " .. delta .. ", it's too long!!!!")
+            delta = cfg.check_interval
+        end
+
+        local readable, _, error = socket.select(set, nil , delta)
+        for _,v in ipairs(readable) do
+
+            if v == unsock then
+                -- logger(3, 'new client come in ...')
+
+                local clt=v:accept()
+                if clt then
+                    clt:settimeout(1)
+                    set:insert(clt)
+                else
+                    logger(3, 'accept client error.')
+                end
+            else
+                local data,error = v:receive()
+
+                if error then
+                    v:close()
+                    -- logger(3, 'client is disconnected.')
+                    set:remove(v)
+                else
+                    local args=string.split(data,' ')
+                    local res,execflag='',''
+                    if not args[1] then
+                        res={status=3,data='cmd is NULL.'}
+                    elseif args[1] == 'die' then
+                        v:send(json.encode({status=0}) .. "\n")
+                        v:close()
+                        logger(3,"======== COMMAND `qos die` ============")
+                        system_exit()       ---===OVER NOW===---
+
+                    else
+                        -- 命令行的处理
+                        cfg.clean_counters = 0
+                        res,execflag = process_cmd(unpack(args))
+                        if execflag then    -- 触发立即执行更新qos操作
+                            next_qos_time = 0
+                        end
+                    end
+
+                    v:send(json.encode(res) .. '\n')
+                    v:close()
+                    set:remove(v)
+                end
+            end
+        end
+    end
+end
+
+function main_once()
+
+    -- FIX 模式强制service模式
+    cur_qdisc='service'
+
+    local res={result=0,data='ok'}
+    cfg.DEVS={
+            UP={dev=read_interfaces("wan"),id='2',},
+            DOWN={dev="ifb0",id='1',},
+        }
+    if not QOS_CMD or not QOS_CMD[1] then
+        update_fix_qos_rules()
+    else
+        -- 命令行的处理
+        read_qos_config()
+        res,execflag = process_cmd(unpack(QOS_CMD))
+
+        if execflag then    -- 触发立即执行更新qos操作
+            update_fix_qos_rules()
+        end
+    end
+
+    if g_debug then pr(res) end
+
+end
+
+
+--[[main]]-------------------
+local function main()
+
+    if system_init() then
+        local s,e
+        if QOS_VER == 'FIX' then
+            -- logger(3, 'apply rule as FIX mode.')
+            s, e = pcall(function() main_once() end)
+        else
+            -- logger(3, 'apply rule as non-FIX mode.')
+            s, e = pcall(function() main_loop() end)
+        end
+        if not s
+        then
+            logger(3,e)
+            cleanup_system()
+        end
+    else
+        logger(3, 'system initial failed. exit.')
+    end
+end
+
+main()
+
+--[[main end]]-------------------

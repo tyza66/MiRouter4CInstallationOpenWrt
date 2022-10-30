@@ -1,0 +1,17 @@
+bootcmd=tftp
+bootdelay=5
+ethaddr="00:AA:BB:CC:DD:20"
+ipaddr=192.168.31.1
+serverip=192.168.31.100
+stdin=serial
+stdout=serial
+stderr=serial
+uart_en=0
+telnet_en=0
+restore_defaults=0
+wl1_ssid=Xiaomi
+wl1_radio=1
+model=R4CM
+flag_boot_type=2
+boot_wait=off
+mode=Router

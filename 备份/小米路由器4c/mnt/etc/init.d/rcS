@@ -1,0 +1,182 @@
+#!/bin/sh
+# Copyright (C) 2006 OpenWrt.org
+
+RCSTATFILE='/tmp/rc.timing'
+BOOTCHECKCODEFILE='/tmp/rc.done'
+
+#
+export LOGTAG="rcS $1 $2"
+export PROC_CALLER="/etc/init.d/rcS $1 $2"
+#
+dlog() {
+	local oneline
+	oneline="$@"
+	if [ -x /usr/bin/logger ]; then
+		logger -s -p 1 -t "$LOGTAG" -- "$oneline"
+	else
+		echo "`date` ${LOGTAG}[${$}]: $oneline"
+	fi
+}
+logexec() {
+	local exitcode
+	local execline
+	local capfile
+	execline="$@"
+	test -z "$execline" && return 0
+	mkdir -p /tmp/logexec/
+	capfile="/dev/null"
+	$execline > $capfile 2>&1
+	exitcode=$?
+	if [ $exitcode -ne 0 ]; then
+		dlog "logexec: exitcode $exitcode, $execline"
+	fi
+	return $exitcode
+}
+
+execwarnlimit=15
+rctimelimit=65
+run_scripts() {
+	startts=0
+	endts=0
+	espts=0
+	totalespts=0
+	wait_stat=0
+	export LOGTAG="rcS $1 $2"
+	if [ "$1" = 'S' ]; then
+		echo '' > $BOOTCHECKCODEFILE
+		if [ $? -ne 0 ]; then
+			dlog "WARNING: truncat $BOOTCHECKCODEFILE failed."
+		fi
+		dlog "INFO: rc script run time limit to $rctimelimit seconds."
+	fi
+	echo '#!/bin/sh' > $RCSTATFILE
+	for i in /etc/rc.d/$1*; do
+		[ -x $i ] || continue
+
+		export LOGTAG="rcS $1 calling: $i $2"
+		#dlog "$LOGTAG"
+		if [ "$1" != 'S' ]; then
+			#we do not care stop
+			echo "$i" | grep -qE "K9"
+			if [ $? -eq 0 ]; then
+				if [ $wait_stat -eq 0 ]; then
+					wait
+					sleep 2
+					wait_stat=1
+				fi
+				$i $2 2>&1
+			else
+				$i $2 2>&1 &
+			fi
+			continue
+		fi
+		#dlog "running ..."
+		startts=$(printf '%.0f\n' $(cat /proc/uptime | cut -d' ' -f 1))
+		logexec "runt $rctimelimit $i $2"
+		exitcode=$?
+		endts=$(printf '%.0f\n' $(cat /proc/uptime | cut -d' ' -f 1))
+		let espts=$endts-$startts
+		echo "$i" | grep -q 'waitting$' && continue
+		if [ $espts -le 1380000000 -a $espts -ge 0 ]; then
+			if [ $espts -ge $rctimelimit ]; then
+				dlog "ERROR: EXITCODE=$exitcode, execute too slow, $espts >= ${rctimelimit}: $i $2"
+			elif [ $espts -ge $execwarnlimit ]; then
+				dlog "WARNING: EXITCODE=$exitcode, execute too slow, $espts >= ${execwarnlimit}: $i $2"
+			#else
+			#	echo "INFO: EXITCODE=$exitcode, execut time $espts < ${rctimelimit}: $i $2"
+			fi
+			let totalespts=$totalespts+$espts
+		#else
+		#	let totalespts=$totalespts+1
+		#	dlog "WARNING: invalid init script execute time ${espts}(> $rctimelimit, clock fast-forward ?): $i $2"
+		fi
+		echo "EXITCODE=$exitcode;ESP=$espts;LIMIT=${rctimelimit};CMD=$i;ARG=$2;" >> $RCSTATFILE
+		echo "TOTALESP=$totalespts;" >> $RCSTATFILE
+
+		fac_mode=`cat /proc/xiaoqiang/ft_mode`
+		if [ "$fac_mode" = "1" -a "$i" = "/etc/rc.d/S50key_services_boot_check" ]; then
+			dlog "Fast boot in factory mode"
+			break
+		fi
+	done
+	#
+	export LOGTAG="rcS $1 $2"
+	#
+	if [ "$1" = 'S' ]; then
+		eval "$(cat $RCSTATFILE | grep '^TOTALESP='| grep ';$'|tail -n 1)"
+		test -z "$TOTALESP" && TOTALESP='FIXME:unknow'
+		tmsg="INFO: rcS $@ timing $TOTALESP seconds."
+		logger stat_points_none gel_log_boot_time=$TOTALESP
+		dlog "$tmsg"
+		echo "`date` $tmsg" >> /dev/console
+		# flag_boot_type: 1 system in SATA   version
+		#                 2 system in SQUASH version
+		#                 9 system in tftp version
+		# boot_status is no ready
+		boot_status="$(cat /proc/xiaoqiang/boot_status 2>/dev/null)"
+		test -z "$boot_status" && boot_status=65535
+		test -z "$BOOT_TYPE" && BOOT_TYPE=$(nvram get flag_boot_type 2>/dev/null)
+		test -z "$BOOT_TYPE" && BOOT_TYPE=65535
+		boardversion=`nvram get model`
+		if [ -z "$boardversion" ]; then
+			boardversion=`cat /proc/xiaoqiang/model 2>/dev/null`
+		fi
+		test -z "$boardversion" && boardversion='unknow_board'
+		case "$BOOT_TYPE" in
+			1)
+				tmsg="system type(${boardversion}/${BOOT_TYPE}): SATA/${boot_status}"
+				;;
+			2)
+				tmsg="system type(${boardversion}/${BOOT_TYPE}): SQUASH/${boot_status}"
+				;;
+			*)
+				tmsg="system type(${boardversion}/${BOOT_TYPE}): UNKNOW/${boot_status}"
+				;;
+		esac
+		dlog "$tmsg"
+		echo "`date` $tmsg" >> /dev/console
+		tmsg="ROOTFS: $(mount | grep ' on / type ' | tail -n 1)"
+		dlog "$tmsg"
+		echo "`date` $tmsg" >> /dev/console
+		#
+		#run boot_check to set boot flag
+		#
+		bootcheckcode=0
+		if [ -x /usr/sbin/boot_check ]; then
+			/usr/sbin/boot_check $2
+			bootcheckcode=$?
+		else
+			/etc/init.d/boot_check $2
+			bootcheckcode=$?
+		fi
+		echo "BOOTCHECKCODE=${bootcheckcode};" > $BOOTCHECKCODEFILE
+		if [ $? -ne 0 ]; then
+			dlog "WARNING: save BOOTCHECKCODE $BOOTCHECKCODE to $BOOTCHECKCODEFILE failed."
+		fi
+
+		# should led be turned off?
+		if [ -x /usr/sbin/led_check ]; then
+			/usr/sbin/led_check
+		fi
+
+		# process crashlog if any
+		if [ -x /usr/sbin/upcrash ]; then
+			/usr/sbin/upcrash
+		fi
+fi
+}
+
+system_config() {
+	config_get_bool foreground $1 foreground 0
+}
+
+. /lib/functions.sh
+
+config_load system
+config_foreach system_config system
+
+if [ "$1" = "S" -a "$foreground" != "1" ]; then
+	run_scripts "$1" "$2" &
+else
+	run_scripts "$1" "$2"
+fi

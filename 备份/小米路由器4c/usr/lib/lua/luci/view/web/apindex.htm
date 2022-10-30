@@ -1,0 +1,212 @@
+<%
+    local XQVersion = require "xiaoqiang.XQVersion"
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local XQWifiUtil = require "xiaoqiang.util.XQWifiUtil"
+    local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+    local XQFunction = require "xiaoqiang.common.XQFunction"
+    local ver = XQVersion.webVersion
+    local wifi24Status = XQWifiUtil.getWifiStatus(1).up
+    local wifi50Status = XQWifiUtil.getWifiStatus(2).up
+    local remote_addr = luci.http.getenv("REMOTE_ADDR")
+    local mac = luci.sys.net.ip4mac(remote_addr or " ")
+    local MAC = string.upper(mac)
+    local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+    local hardwareVersion = XQSysUtil.getHardware()
+    local romVersion = XQSysUtil.getRomVersion()
+    local sysInfo = XQSysUtil.getSysInfo()
+    local encode4HtmlValue = XQFunction.encode4HtmlValue
+    local router_name = XQSysUtil.getRouterName()
+    local router_local = XQSysUtil.getRouterLocale()
+
+    if router_local then
+        router_name = encode4HtmlValue(router_name) .."(".. encode4HtmlValue(router_local) ..")"
+    else
+        router_name = encode4HtmlValue(router_name)
+    end
+    
+    local netmod = XQFunction.getNetModeType()
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local color = XQSysUtil.getColor()
+    local _hardware = hardware
+    if hardware == "r1cl" then
+        _hardware = "r1cm"
+    end
+    local routerSrc = "router_".._hardware.."_".. color..".png"
+    local routerSrcOn = "router_".._hardware.."_".. color.."_on.png"
+    local features = require("xiaoqiang.XQFeatures").FEATURES
+    local wifi50IsSupport = features["wifi"]["wifi50"]
+
+    local vendorInfo = XQSysUtil.getVendorInfo()
+    local vendorInfo_ip = 0
+    local vendorInfoRouterSrc = ''
+    if vendorInfo.ip and vendorInfo.ip ~= "" and vendorInfo.hardware and vendorInfo.hardware ~= ""  and vendorInfo.color and vendorInfo.color ~= "" then
+        vendorInfo_ip = vendorInfo.ip
+        vendorInfoRouterSrc = "router_"..string.lower(vendorInfo.hardware).."_"..vendorInfo.color..".png"
+    end
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/index.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div class="mod-netmap">
+        <div class="inner clearfix">
+            <div class="devices">
+                <div class="img"></div>
+                <p><%:终端设备%></p>
+                <div class="status status-devices" id="statusDevices"><b class="devcountonline">--</b><%:台%></div>
+            </div>
+            <div id="devline" class="line line-ok"></div>
+            <div class="router active">
+                <div class="img">
+                    <img class="on" src="<%=resource%>/web/img/icons/<%=routerSrcOn%>">
+                    <img class="off" src="<%=resource%>/web/img/icons/<%=routerSrc%>">
+                </div>
+                <p><%=router_name%> | <%:本机%></p>
+                <table class="status-wifi" id="statusWifi">
+                <%if wifi50IsSupport == "1" then%>
+                    <tr>
+                        <td class="l">
+                            <div class="status"><i id="ssid24status" class="ico ico-wifi-on"></i><span>2.4G: </span><b id="ssid24val">--</b></div>
+                        </td>
+                        <td class="c">|</td>
+                        <td class="r">
+                            <div class="status"><i id="ssid50status" class="ico ico-wifi-on"></i><span>5G:</span><b id="ssid50val">--</b></div>
+                        </td>
+                    </tr>
+                <%else%>
+                    <tr>
+                        <td style="border-radius:24px;" colspan="3">
+                            <div class="status"><i id="ssid24status" class="ico ico-wifi-on"></i><span>Wi-Fi:</span><b id="ssid24val">--</b></div>
+                            <div class="status" style="display:none;"><i id="ssid50status" class="ico ico-wifi-on"></i><span>5G:</span><b id="ssid50val">--</b></div>
+                        </td>
+                    </tr>
+                <%end%>
+                </table>
+            </div>
+            <div id="netline" class="line line-aplink"></div>
+            <div class="linetext-aplink"><%if netmod == 1 then%><%:无线中继%><%else%><%:有线中继%><%end%></div>
+            <div class="internet">
+            <%if vendorInfo_ip ~= 0 then%>
+                <a href="http://<%=vendorInfo_ip%>" target="_blank">
+                <img src="<%=resource%>/web/img/icons/<%=vendorInfoRouterSrc%>">
+                </a>
+            <%else%>
+                <img src="<%=resource%>/web/img/icons/router_other.png">
+            <%end%>
+                <p><%:主路由器%></p>
+                <div class="status status-internet" id="statusInternet">
+                    <i class="ico ico-wifi-on"></i><b id="ssidval">--</b>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="bd">
+        <%if netmod == 1 then%>
+        <div class="mod-apquality">
+            <div class="inner" id="apqualityval"></div>
+        </div>
+        <%end%>
+        <div class="mod-routerstatus nav-tab-content clearfix">
+
+            <div class="status-panel status-panel-first">
+                <div class="hd">
+                    <h3><%:当前CPU状态%></h3>
+                    <p><%:当前CPU负载：%><b id="cpuused">--</b></p>
+                </div>
+                <div class="bd">
+                    <div class="canvas" id="cpuChart"></div>
+                </div>
+                <div class="ft">
+                    <%:CPU核心数%>: <span class="val" id="cpucore">--</span> <i class="div">|</i> <%:核心频率%>: <span class="val" id="cpuhz">--</span>
+                </div>
+            </div>
+            <div class="status-panel">
+                <div class="hd">
+                    <h3><%:当前内存状态%></h3>
+                    <p><%:当前内存占用：%><b id="memused">--</b></p>
+                </div>
+                <div class="bd">
+                    <div class="canvas" id="memChart"></div>
+                </div>
+                <div class="ft">
+                    <%:内存容量%>: <span class="val" id="memtotal">--</span> <i class="div">|</i> <%:内存类型%>: <span class="val" id="memtype">--</span> <i class="div">|</i> <%:内存频率%>: <span class="val" id="memhz">--</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+<script src="<%=resource%>/web/js/class.linechart.js"></script>
+<script>
+$.sub( 'wifi:get', function( evt, data ){
+    var apiGetWiFi = '<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>',
+        apiGetWiFiData = {};
+    $.getJSON( apiGetWiFi, apiGetWiFiData, function( rsp ){
+        if ( rsp.code === 0 ) {
+            wifiInfo = rsp.info;
+            var wifi24status = wifiInfo[0].status;
+            var wifi50status = wifiInfo[1] && wifiInfo[1].status;
+            var wifi24ssid = wifiInfo[0].ssid;
+            var wifi50ssid = wifiInfo[1] && wifiInfo[1].ssid;
+            $('#ssid24status')[0].className = wifi24status == 0 ? 'ico ico-wifi-off' : 'ico ico-wifi-on';
+            $('#ssid50status')[0].className = wifi50status == 0 ? 'ico ico-wifi-off' : 'ico ico-wifi-on';
+            $('#ssid24val').text(wifi24ssid);
+            $('#ssid50val').text(wifi50ssid);
+        }
+    });
+} );
+
+$.sub('status:get', function(){
+    var apiSysstatus = '<%=luci.dispatcher.build_url("api","misystem","status")%>',
+        apiSysstatusData = {};
+
+    function getCpu( data ){
+        $('#cpuused').text( (data.load * 100).toFixed(2) + '%' );
+        $('#cpucore').text( data.core );
+        $('#cpuhz').text( data.hz );
+    }
+    function getMem( data ){
+        $('#memused').text( (data.usage * 100).toFixed(2) + '%' );
+        $('#memtotal').text( data.total );
+        $('#memhz').text( data.hz );
+        $('#memtype').text( data.type );
+    }
+    function getDev(data){
+
+        $('#devcountall').text(data.devcountall);
+        $('.devcountonline').text(data.devcountonline);
+    }
+    $.getJSON(apiSysstatus, apiSysstatusData, function(rsp){
+        if ( rsp.code == 0 ) {
+            getCpu(rsp.cpu);
+            getMem(rsp.mem);
+            getDev({
+                devcountall: rsp.count.all,
+                devcountonline: rsp.count.online
+            });
+            $.pub('chart:cpuUpdate', rsp.cpu);
+            $.pub('chart:memUpdate', rsp.mem);
+        }
+    });
+});
+
+$.sub('chart:lineInit',function(evt, data){
+    $.chartLineCpuDB = [0,0,0,0,0,0,0,0,0,0];
+    $.chartLineCpu = new Linechart({
+        container: document.getElementById('cpuChart'),
+        width: 489,
+        height: 200,
+        maxYval: 100,
+        maxYnum: 5,
+        labelUnit: '%'
+    });
+
+    $.chartLineMemDB = [0,0,0,0,0,0,0,0,0,0];
+    $.chartLineMem = new Linechart

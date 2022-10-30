@@ -1,0 +1,15 @@
+
+config core 'history'
+	option A23879D5A002 '1557743296'
+	option 3868938A28A2 '1557743608'
+
+config record 'wifi_ignore'
+
+config record 'authfail'
+
+config deviceinfo 'A23879D5A002_INFO'
+	option mac 'A2:38:79:D5:A0:02'
+
+config deviceinfo '3868938A28A2_INFO'
+	option mac '38:68:93:8A:28:A2'
+

@@ -1,0 +1,27 @@
+<%
+--[[
+    Info    路由器存储状态
+]]--
+
+local ver = require("xiaoqiang.XQVersion").webVersion
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/store.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <%include("web/inc/store")%>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+<script src="<%=resource%>/web/js/class.linechart.js"></script>
+<script src="<%=resource%>/web/js/class.pie.js"></script>
+<%include("web/inc/store.js")%>
+</body>
+</html>

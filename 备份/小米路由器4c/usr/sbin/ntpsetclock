@@ -1,0 +1,124 @@
+#!/bin/sh
+timeout="$1"
+once="$2"
+#
+. /lib/lib.scripthelper.sh
+#
+
+NTPSTATUSFLAG="/tmp/ntp.status"
+SCRIP_PATH='/etc/hotplug.d/ntp'
+
+dlog() {
+    logger -s -p 6 -t "ntp" "$@"
+}
+
+run_scripts() {
+    dlog "Begin run ntp script in $SCRIP_PATH"
+    for i in $SCRIP_PATH/*; do
+	dlog "exec $i"
+	$i $1 &>/dev/null
+    done &
+}
+
+time_sync_done(){
+    dlog "INFO: $1 sync ok."
+    echo -e "ok,`date +"%Y%m%d%H%M%S"`" >$NTPSTATUSFLAG 2>/dev/null
+    # run background
+    run_scripts $(date +%s)
+}
+
+# get time from http header
+htp_backup(){
+    local htphost='htp.miwifi.com'
+    #local htpcmd="htpdate -4 -l -t -s $htphost"
+    # default(without -t) the time_limit is 1 year and with -t option it is 2100000000(much more than 1 year)
+    # when (-time_limit < server_time - system_time < time_limit), the time get from server is considered as valid
+    # but when HTTP response doesn't contain "Date:" field, server_time will be the default LONG_MAX(2147483647)
+    # and then considered as a valid time with -t option, and htpdate will return 0(although settimeofday failed)
+    local htpcmd="htpdate -4 -l -s $htphost"
+    runt "$timeout" "$htpcmd"
+    local synccode=$?
+    if [ $synccode -ne 0 ]
+    then
+	dlog "ERROR: htp failed... do you have a working Internet connection?"
+	return 1
+    else
+	time_sync_done "htp"
+	return 0
+    fi
+}
+
+# skip time adjust when uninitilized
+[ $(uci -q get xiaoqiang.common.INITTED) = "NO" ] && exit 0
+
+LOCKFILE=/var/lock/ntpd-ifup
+trap "lock -u ${LOCKFILE}; exit" INT TERM EXIT
+if ! lock -n $LOCKFILE; then
+    dlog "ntp already running, skip this sync"
+    trap '' EXIT
+    exit 0
+fi
+
+CLOCKFILE='/data/sysapi/clock.ts'
+NTPSTATUS=$(cut -d, -f1 $NTPSTATUSFLAG 2>/dev/null)
+if [ "$(/bin/date -u +%s 2>/dev/null)" -lt "0" ]; then
+	/bin/date -s "1970-01-01 13:00:00" 2>/dev/null && logger -t "ntpsetclock" "fix epoch time ok $(/bin/date -u +%s 2>/dev/null)"
+fi
+
+if [ "$NTPSTATUS" = "ok" ];then
+    local last_sync=$(cut -d, -f2 $NTPSTATUSFLAG 2>/dev/null)
+    echo "INFO: last ntp sync sucessed at $last_sync"
+    [ -n "$once" ] && exit 0
+fi
+
+ntpservers="$(uci get system.ntp.server)"
+echo "$ntpservers"| grep -q "hk.pool.ntp.f25.me"
+if [ $? -eq 0 ]
+	then
+	uci set system.ntp.server="0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org 3.asia.pool.ntp.org 0.asia.pool.ntp.org 0.cn.pool.ntp.org" 2>/dev/null&&uci commit
+	if [ $? -eq 0 ]
+		then
+		echo "INFO: old ntp server list ,update ntp server sucessed!"
+	else
+		echo "ERROR: old ntp server list ,update ntp server  failed!"
+	fi
+	ntpservers="0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org 3.asia.pool.ntp.org 0.asia.pool.ntp.org 0.cn.pool.ntp.org"
+fi
+test -z "$ntpservers" && ntpservers="0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org 3.asia.pool.ntp.org 0.asia.pool.ntp.org 0.cn.pool.ntp.org"
+
+#do not print debugging info
+ntpcmd="/usr/sbin/ntpd -N -q -n -4"
+for onentpsrv in $ntpservers
+do
+	ntpcmd="$ntpcmd -p $onentpsrv"
+done
+
+case $timeout in
+    post)
+	echo "INFO: wan up event, ntp sync called."
+	echo "INFO: delay 3 seconds befor sync."
+	sleep 3
+    ;;
+    now)
+	echo "INFO:  emergency ntp sync called."
+    ;;
+    rand)
+	sleeptm=`cat /dev/urandom |head -c 30|md5sum | tr -d [0a-zA-Z- ]  2>/dev/null`
+	sleeptm=$((${sleeptm:0:8}%300))
+	echo "INFO: random ntp sync called."
+	echo "sleep $sleeptm for ntpd sync"
+	sleep $sleeptm
+    ;;
+    *)
+	timeout=60
+    ;;
+esac
+
+eval "$ntpcmd"
+if [ $? -ne 0 ]
+then
+    dlog "WARN: ntp update failed: $ntpcmd, try htp"
+    htp_backup
+else
+    time_sync_done "ntp"
+fi

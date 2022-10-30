@@ -1,0 +1,16 @@
+2019-05-13T21:18:06+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:18:26+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:18:34+08:00 MT7628 plugincenter[3336]: getPluginList installedlist count is 3
+2019-05-13T21:18:46+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:18:54+08:00 MT7628 kernel: [10937.300000] APPeerProbeReqAction():shiang! PeerProbeReqSanity failed!
+2019-05-13T21:19:06+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:19:26+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:19:46+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:20:00+08:00 MT7628 sysmon[5291]: sysmon timer sta log
+2019-05-13T21:20:00+08:00 MT7628 TaskMonitor[Server]: [935]: restart task[/usr/bin/hiapk2 5 8]
+2019-05-13T21:20:01+08:00 MT7628 syslog: [ERROR] /home/jenkins/romdaily/system/build_dir/target-mipsel-openwrt-linux-uclibc/himan/src/hiapk2/HiLibCurl.c:792(HiLibCurlCloudServerRequest) curl_easy_perform error! Error:Error
+2019-05-13T21:20:01+08:00 MT7628 syslog: [ERROR] /home/jenkins/romdaily/system/build_dir/target-mipsel-openwrt-linux-uclibc/himan/src/hiapk2/HiLibCurl.c:872(HiLibCurlDownloadConfig) HiLibCurlDownloadConfig server request error!url:https://api.miwifi.com/data/apk_download_config?deviceId=885e0104-2a73-c32d-0b04-eb2995ecf747&version=1
+2019-05-13T21:20:01+08:00 MT7628 PPOC/hiapk2[935]: /usr/bin/hiapk2: Can't open download config: Connection refused
+2019-05-13T21:20:06+08:00 MT7628 TaskMonitor[Server]: [935]: [5s check] task[/usr/bin/hiapk2 5 8] Abnormal exit, restart after 2560 seconds !
+2019-05-13T21:20:06+08:00 MT7628 smartcontroller[4521]: Can not find ntp status file: /tmp/ntp.status
+2019-05-13T21:20:26+08:00 MT7

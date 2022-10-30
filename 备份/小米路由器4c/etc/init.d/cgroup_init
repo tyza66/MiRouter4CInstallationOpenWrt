@@ -1,0 +1,95 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006-2011 OpenWrt.org
+
+START=03
+
+#memory group 1. limit to 150MB
+create_mem_group() {
+    #exit if memory of cgroups is not enabled
+    memory_flag=`grep memory /proc/cgroups 2>/dev/null`
+    if [ -z "$memory_flag" ]; then
+        return 0
+    fi
+
+    memgrp_en=`uci get misc.cgroup.memgrp1_en 2>/dev/null`
+    [ "$memgrp_en" = "1" ] || return 0
+
+    memgrp_limit=`uci get misc.cgroup.memgrp1_limit 2>/dev/null`
+    mkdir -p /dev/cgroup/mem
+    mount -t cgroup none -o memory /dev/cgroup/mem
+
+    mkdir -p /dev/cgroup/mem/group1
+    cd /dev/cgroup/mem/group1
+
+    echo "$memgrp_limit" > memory.limit_in_bytes
+    echo "$memgrp_limit" > memory.soft_limit_in_bytes
+    echo 10 > memory.swappiness
+}
+
+#net_cls, only for local networking INPUT/OUTPUT
+#limited group/unlimited group
+create_net_group() {
+    #sure net_cls module loaded
+    #insmod cls_cgroup 2>/dev/null
+
+    #exit if net_cls of cgroups is not enabled
+    net_cls_flag=`grep net_cls /proc/cgroups 2>/dev/null`
+    if [ -z "$net_cls_flag" ]; then
+        return 0
+    fi
+
+    # cgroups for net_cls #
+    mkdir -p /dev/cgroup/net_cls
+    mount -t cgroup none -o net_cls /dev/cgroup/net_cls
+
+    # unlimit class #
+    mkdir -p /dev/cgroup/net_cls/unlimited
+    echo 0x00010000 > /dev/cgroup/net_cls/unlimited/net_cls.classid
+
+    # limited class #
+    mkdir -p /dev/cgroup/net_cls/limited
+    echo 0x00050000 > /dev/cgroup/net_cls/limited/net_cls.classid
+
+
+}
+
+
+
+create_cpu_group() {
+
+    cpu_flag=`grep cpu /proc/cgroups 2>/dev/null`
+    if [ -z "$cpu_flag" ]; then
+        return 0
+    fi
+
+    mkdir -p /dev/cgroup/cpu
+    mount -t cgroup none -o cpu /dev/cgroup/cpu
+
+    mkdir -p /dev/cgroup/cpu/plugin
+
+
+    echo 20000 > /dev/cgroup/cpu/plugin/cpu.cfs_quota_us
+
+}
+
+
+start() {
+
+    #check cgroup enabled or not 1stly
+    cgroup_flag=`grep cgroup /proc/filesystems 2>/dev/null`
+    if [ -z "$cgroup_flag" ]; then
+        return 0
+    fi
+
+    mkdir -p /dev/cgroup
+
+    create_mem_group
+
+    create_net_group
+
+	create_cpu_group
+
+    return 0
+}
+
+

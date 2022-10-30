@@ -1,0 +1,4 @@
+VLAN Dev name	 | VLAN ID
+Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
+eth0.1         | 1  | eth0
+eth0.2         | 2  | eth0

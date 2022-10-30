@@ -1,0 +1,54 @@
+package fw3_state
+
+config defaults
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option __flags_v4 '0x2001f'
+	option __flags_v6 '0x2002d'
+
+config zone
+	option name 'lan'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '0'
+	option conntrack '1'
+	option mtu_fix '0'
+	option custom_chains '1'
+	list device 'br-lan@lan'
+	list __addrs '192.168.31.1'
+	list __addrs 'fe80::52d2:f5ff:fef7:abac'
+	option __flags_v4 '0x2258cf'
+	option __flags_v6 '0x240cd'
+
+config zone
+	option name 'wan'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+	option conntrack '1'
+	option mtu_fix '1'
+	option custom_chains '1'
+	list device 'eth0.2@wan'
+	list __addrs '10.128.84.2'
+	list __addrs 'fe80::52d2:f5ff:fef7:abac'
+	option __flags_v4 '0x2298cf'
+	option __flags_v6 '0x280cd'
+
+config zone
+	option name 'ready'
+	option input 'DROP'
+	option output 'DROP'
+	option forward 'DROP'
+	option masq '0'
+	option conntrack '0'
+	option mtu_fix '0'
+	option custom_chains '1'
+	list device 'wl2@ready'
+	list __addrs '169.254.29.1'
+	list __addrs 'fe80::50d2:f5ff:fed7:abad'
+	option __flags_v4 '0x23194f'
+	option __flags_v6 '0x3014d'
+

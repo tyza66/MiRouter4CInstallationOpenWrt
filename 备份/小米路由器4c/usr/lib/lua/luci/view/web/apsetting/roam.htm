@@ -1,0 +1,166 @@
+<%
+--[[
+    Info    roam
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+local hardware = string.lower( XQSysUtil.getHardware() )
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/wifi.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/upnp.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <%if hardware == "r3a" or hardware == "r3g" then%>
+        <div class="mod-set mod-wifi mod-wifi-roam">
+            <div class="hd">
+                <h3>漫游</h3>               
+            </div>
+            <div class="bd">
+               <form class="form form-horizontal" id="roam24" name="roam24"  action="<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi_weak")%>" autocomplete="off">
+                <div id="roamset24" class="form">
+                </div>
+                </form>
+                 <form class="form form-horizontal" id="roam50" name="roam50"  action="<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi_weak")%>" autocomplete="off">                
+                    <div id="roamset50" class="form">
+                    </div>
+                </form>
+
+                <p style="margin-top:30px;">*拒绝阈值：路由器检测到移动设备信号强度小于此值时，拒绝设备接入路由器;</p>
+              <p>踢除阈值：路由器检测到移动设备信号强度小于此值时，将强制已上线的设备下线;</p>
+              <p>设置”拒绝阈值”和”踢除阈值”，可引导弱信号设备漫游，”拒绝阈值”通常比”踢除阈值”高3-5dBm，适用于以下三种场景：</p>
+               <p>1.家中有多台路由器时，将弱信号接入设备引导到信号较好的路由器，达到良好上线体验;</p>
+               <p> 2.家中有单台路由器时，接入设备在某些位置因为Wi-Fi信号太弱而上网体验差，引导设备切换到3G/4G以保证上网体验;</p>
+                <p>3.路由器上接入用户较多时，踢除弱信号接入设备，减轻路由器压力，让信号好的设备有更好上网体验;</p>
+                <p>警告：开启此功能后，可能会导致某些设备无法接入路由器，影响用户的正常上网体验，建议非专业人士请勿开启。</p>
+            </div>
+            
+        </div>
+        <%end%>
+        <%include("web/inc/devcenter")%>
+    </div>
+
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+<script type="text/tmpl" id="tplRoam24">
+    <input type="hidden" value="1" name="wifiIndex">
+        <div class="item">
+            <span class="bsd-ground"><%:2.4G 漫游%></span>
+            <span class="v">
+                <label><input type="radio" name="on" value="1"{if ($weakenable == 1 )} checked{/if}> <span><%:开启%></span></label>
+                <label><input type="radio" name="on" value="0"{if ($weakenable == 0 )} checked{/if}> <span><%:关闭%></span></label>
+            </span>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:拒绝阈值%></label>
+            <span class="v"><input type="text" name="weakthreshold" value="{$weakthreshold}" class="ipt-text" autocomplete="off" datatype="negative"  minvalue="-95" maxvalue="-65" reqMsg="<%:需在-95~-65范围内取值%>" /></span>
+            <em class="t">dBm(取值范围-95~-65)</em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:踢除阈值%></label>
+            <span class="v"><input type="text" name="kickthreshold" value="{$kickthreshold}" class="ipt-text" autocomplete="off" datatype="negative" minvalue="-100" maxvalue="-70" reqMsg="<%:需在-100~-70范围内取值%>" /></span>
+            <em class="t">dBm(取值范围-100~-70)</em>
+        </div>
+         <div class="form-contral">
+            <button type="submit" class="btn btn-primary btn-l hidden"><span><%:保存%></span></button>
+        </div>
+    </script>
+    <script type="text/tmpl" id="tplRoam50">
+    <input type="hidden" value="2" name="wifiIndex">
+        <div class="item">
+            <span class="bsd-ground"><%:5G 漫游%></span>
+            <span class="v">
+                <label><input type="radio" name="on" value="1"{if ($weakenable == 1 )} checked{/if}> <span><%:开启%></span></label>
+                <label><input type="radio" name="on" value="0"{if ($weakenable == 0)} checked{/if}> <span><%:关闭%></span></label>
+            </span>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:拒绝阈值%></label>
+            <span class="v"><input type="text" name="weakthreshold" value="{$weakthreshold}" class="ipt-text" autocomplete="off" datatype="negative" minvalue="-85" maxvalue="-55" reqMsg="<%:需在-85~-55范围内取值%>" /></span>
+            <em class="t">dBm(取值范围-85~-55)</em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:踢除阈值%></label>
+            <span class="v"><input type="text" name="kickthreshold" value="{$kickthreshold}" class="ipt-text" autocomplete="off" datatype="negative" minvalue="-90" maxvalue="-60" reqMsg="<%:需在-90~-60范围内取值%>" /></span>
+            <em class="t">dBm(取值范围-90~-60)</em>
+        </div>
+         <div class="form-contral">
+            <button type="submit" class="btn btn-primary btn-l hidden"><span><%:保存%></span></button>
+        </div>
+    </script>
+<script>
+$(function(){
+    function onControlFocus() {
+        $(this).parents('form').find('.btn-primary').removeClass('hidden');
+    }
+    $.sub( 'wifi:init', function( evt, data ){
+        
+        // get wifi and rander html
+         var containers = ['wifiset24', 'wifiset50', 'wifisetguest'],
+                roamContainer = ['roamset24', 'roamset50'],
+                tplRoamContainer = ['tplRoam24', 'tplRoam50'],
+                tpl = $('#tplWifi').html();
+        $.getJSON('<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>')
+        .done(function( rsp ){
+            if ( rsp.code == 0 ) {
+                if( rsp.bsd == 1 ){
+                    $('#bsdswitch')
+                    .removeClass('btn-switch-off')
+                    .addClass('btn-switch-on')
+                    .attr('data-on', '1');
+                    $('.mod-wifi24 .hd h3').text('<%:Wi-Fi%>');
+                    $('.mod-wifi24 .bd').html( $('#tplbsdWrap').html() );
+                    $('.mod-wifi50').remove();
+                    $('#wifisetbsd').delegate('input[type=text], input[type=checkbox], input[type=radio]', 'click', onControlFocus)
+                        .delegate('.ipt-text', 'click', onControlFocus);
+                
+                }
+                var wifiinfo = rsp.info;
+                var haswifi50 = $('#wifiset50').length > 0 ? true : false;
+                for(var i = 0, len = wifiinfo.length; i < len; i ++){
+                    var id = containers[i];
+                    var container;
+                    if( !haswifi50 && i == 1 ){
+                        container = $(document.getElementById( 'wifisetguest' ));
+                    }else{
+                        if (haswifi50 && i == 1) {
+                            if ( wifiinfo[i].txbf == 0 || wifiinfo[i].txbf == "0") {
+                                 $('#txbfswitch')
+                                .removeClass('btn-switch-on')
+                                .addClass('btn-switch-off')
+                                .attr('data-on', '0');
+                            }
+             
+                        }
+                        container = $(document.getElementById(id));
+                    }
+                    var wifiitem = wifiinfo[i];
+                    var password = wifiitem.password;
+                    var encryption = wifiitem.encryption;
+                    if ( encryption == 'none' ) {
+                        password = '';
+                    }
+                    var tplData = {
+                        wifitype: (!haswifi50 && i == 1) ? i+1 : i,
+                        wifiIndex: (!haswifi50 && i == 1) ? i+2 : i+1,
+                        status: wifiitem.status,
+                        ssid: StringH.encode4HtmlValue(wifiitem.ssid),
+                        password: StringH.encode4HtmlValue(password),
+                        encryption: wifiitem.encryption,
+                        channel: wifiitem.channel,
+                        bandwidth: wifiitem.bandwidth,
+                        channelInfo: wifiitem.channelInfo,
+                        weakenable: wifiitem.weakenable,
+                        weakthreshold: wifiitem.weakthreshold,
+                        kickthreshold:wifiitem.kickthreshold,
+                        hidden: wifiitem.hidden,
+                        txpwr: wifiitem.txpwr,
+                        txbf: wifiitem.txbf,
+           

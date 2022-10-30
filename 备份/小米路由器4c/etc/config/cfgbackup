@@ -1,0 +1,11 @@
+
+config settings 'encryption'
+    option method 'aes'
+    option key 'a2ffa5c9be07488bbb04a3a47d3c5f6a'
+
+config settings 'backup'
+    list item 'mi_basic_info'
+    list item 'mi_wifi_info'
+    list item 'mi_network_info'
+    list item 'mi_lan_info'
+    list item 'mi_arn_info'
